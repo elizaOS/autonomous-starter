@@ -1,242 +1,158 @@
-# The System (Self-Improvement Agent)
+# autonomous-starter: An ElizaOS Autonomous Agent Example
 
 ### 1. Introduction
 
 **1.1. Overview**
-"The System" is a digital agent designed to assist users in managing their daily lives, achieving personal goals, and promoting self-improvement through structured task management and gamification. Inspired by concepts like the system in "Solo Leveling," it aims to provide motivation, track progress, and eventually offer deeper insights into user habits and productivity. This initial version (MVP) focuses on core task management and points tracking functionalities implemented as an ElizaOS plugin.
+"autonomous-starter" is an example project for the ElizaOS ecosystem, designed to demonstrate and facilitate the development of autonomous agents. It showcases core capabilities essential for autonomy, including robust shell command execution via `plugin-shell` and a foundational autonomous loop service provided by `plugin-auto`. This starter kit serves as a launchpad for building sophisticated agents capable of independent operation, decision-making, and interaction with their environment.
 
 **1.2. Vision**
-To create a personalized, intelligent agent that acts as a life coach, helping users break down goals into manageable tasks, stay accountable, build positive habits, and "level up" in their real lives. The long-term vision includes multi-platform integration, behavior monitoring, and proactive assistance, developed transparently as an open-source project.
+To provide a comprehensive and extensible starting point for creating highly autonomous agents within ElizaOS. These agents will be capable of complex task execution, self-management, learning from interactions, and adapting to dynamic situations, ultimately empowering developers and researchers to explore the frontiers of artificial autonomy.
 
 **1.3. Goals (Overall Product)**
 
-- Provide a robust and flexible task management system.
-- Motivate users through a gamified points and potentially leveling system.
-- Help users track progress towards their goals.
-- Establish a foundational architecture for future expansion into behavior monitoring and system integration.
-- Develop the system openly to potentially benefit others.
+- Offer a clear, well-documented framework for autonomous agent development on ElizaOS.
+- Demonstrate seamless integration and utilization of essential services like Shell access (`plugin-shell`) and autonomous operational loops (`plugin-auto`).
+- Serve as a practical testbed for experimenting with and implementing new autonomy features, decision-making algorithms, and agent skills.
+- Foster a community of developers and researchers by providing an accessible platform for building and sharing autonomous agent technologies.
+- Enable agents to achieve goals by intelligently leveraging available tools and information.
 
 **1.4. Target Audience**
 
-- **Primary (MVP):** The developer (Shaw Walters) - focused on self-improvement and creating a personalized tool.
-- **Secondary (Future):** Individuals seeking a gamified approach to productivity, habit formation, and goal achievement, potentially within the open-source community.
+- **Primary:** Developers seeking to build, customize, or understand the mechanics of autonomous agents using the ElizaOS platform.
+- **Secondary:** Researchers in AI and autonomous systems looking for a flexible environment to test theories and algorithms related to agent behavior, planning, and learning.
+- **Tertiary:** Hobbyists and AI enthusiasts interested in exploring and experimenting with cutting-edge autonomous agent capabilities.
 
-### 2. Goals (MVP - `plugin-todo`)
+### 2. Goals (MVP - `autonomous-starter` Core)
 
-- Implement core CRUD (Create, Read, Update, Delete/Cancel) functionality for different task types within ElizaOS.
-- Establish a basic points system for task completion.
-- Implement a reminder system for overdue tasks.
-- Provide users with visibility into their tasks and points via an ElizaOS provider.
-- Utilize ElizaOS Tasks for persistent storage of to-do items.
-- Utilize ElizaOS Entity Components for persistent storage of user points.
-- Ensure actions are validated based on context (e.g., active tasks exist) rather than simple string matching.
+- Integrate and showcase the `plugin-shell` for reliable and secure shell command execution, allowing the agent to interact with the host system.
+- Implement and demonstrate the `plugin-auto` (or a similar autonomous loop service), enabling the agent to operate independently based on predefined goals, triggers, or reflective processes (e.g., using the `REFLECT` action).
+- Establish basic mechanisms for the agent to report its status, manage its operational state (e.g., starting/stopping its autonomous loop), and log its decisions and actions.
+- Provide clear, practical examples within the starter code that illustrate how to extend the agent with new autonomous skills, custom decision-making logic, and additional tool integrations.
+- Ensure that core actions like `RUN_SHELL_COMMAND` and `REFLECT` are well-documented and serve as clear patterns for future development.
+- Create a foundational structure for memory management, allowing the agent to persist and recall information relevant to its tasks and interactions (e.g., results of shell commands).
 
-### 3. Non-Goals (MVP)
+### 3. User Personas (MVP)
 
-- System control features (website blocking).
-- Browser extension for behavior monitoring.
-- Multi-channel notifications beyond the agent's primary interaction platform (e.g., no SMS via Twilio yet).
-- Screen monitoring or analysis.
-- Advanced AI-driven behavioral insights or time tracking analysis.
-- A visual dashboard or dedicated frontend (interactions are via the ElizaOS agent/chat).
-- A formalized "leveling" system beyond raw points accumulation.
+- **Deva (The Aspiring Agent Developer):** A software developer aiming to quickly bootstrap an autonomous agent on ElizaOS. Deva wants to leverage pre-built plugins like `plugin-shell` for system interaction and `plugin-auto` for managing the agent's lifecycle, and then extend it with custom logic and skills for a specific application (e.g., automated server maintenance, intelligent personal assistant).
+- **Resa (The AI Researcher):** An AI researcher needing a stable and extensible platform to experiment with novel autonomous agent behaviors, such as dynamic planning, learning from interaction, or ethical decision-making. Resa values the ability to easily integrate custom algorithms and observe the agent's performance within the controlled ElizaOS environment.
 
-### 4. User Personas (MVP)
+### 4. MVP Definition (Current State - `autonomous-starter` Implementation)
 
-- **Alex (The Developer):** Tech-savvy individual aiming to optimize personal productivity and track progress on daily habits and long-term goals using a self-built, gamified system integrated into their existing digital workflows (chat via ElizaOS).
+The MVP of `autonomous-starter` consists of integrated ElizaOS plugins and example code demonstrating foundational autonomous capabilities.
 
-### 5. MVP Definition (Current State - `plugin-todo` Implementation)
+**4.1. Core Functionality: Autonomous Operation & Shell Access**
 
-The MVP consists of the `plugin-todo` for ElizaOS, providing the foundational task and points system.
+- The agent can execute shell commands through `plugin-shell`, enabling direct interaction with the underlying operating system in a controlled manner.
+- The agent can operate autonomously using `plugin-auto`, which facilitates a loop for goal-oriented behavior, reflection, and decision-making.
+- These plugins interact: the autonomous loop might decide to execute specific shell commands to gather information, perform actions, or manage system resources as part of achieving its goals.
+- All significant outcomes, including shell command results and errors, are saved as message memories, providing a traceable log of operations (as seen in `plugin-shell/action.ts`).
 
-**5.1. Core Functionality: Task Management**
+**4.2. Key Plugins & Services**
 
-- Users can interact with the ElizaOS agent to manage their tasks.
-- Tasks are stored persistently using the ElizaOS Core Task system (`runtime.createTask`, `runtime.getTasks`, `runtime.updateTask`, `runtime.deleteTask`).
-- Tasks are associated with the `roomId` where they were created.
+- **`plugin-shell` (`packages/auto/src/plugin-shell`):**
+  - Provides actions like `RUN_SHELL_COMMAND` to execute arbitrary shell commands.
+  - Manages the current working directory (CWD) for the session.
+  - Includes `CLEAR_SHELL_HISTORY` for managing command history within a session.
+  - Extracts commands from natural language and logs execution details (output, error, exit code) to the message feed.
+- **`plugin-auto` (`packages/auto/src/plugin-auto`):**
+  - Facilitates the agent's autonomous operation.
+  - Includes actions like `REFLECT` (`plugin-auto/reflect.ts`), allowing the agent to process its current state, thoughts, and formulate responses or subsequent actions.
+  - Designed to be extensible with more sophisticated goal management and planning capabilities.
 
-**5.2. Task Types Supported**
+**4.3. Example Actions Implemented**
 
-- **Daily Recurring Tasks:**
-  - Identified by `daily` tag.
-  - Metadata includes `streak` counter (incremented on completion).
-  - Reset daily (via `RESET_DAILY_TASKS` worker) by removing the `completed` tag.
-  - Can have optional `recurring-daily`, `recurring-weekly`, etc., tags via `CREATE_TODO`.
-- **One-off Tasks:**
-  - Identified by `one-off` tag.
-  - Can have an optional `dueDate` (ISO string) in metadata.
-  - Can have an optional `priority` (1-4) via `priority-X` tag.
-  - Can have an optional `urgent` tag.
-- **Aspirational Goals:**
-  - Identified by `aspirational` tag.
-  - Typically no due date, simpler structure.
+- **`RUN_SHELL_COMMAND` (from `plugin-shell`):** Allows the agent to execute system-level commands.
+- **`CLEAR_SHELL_HISTORY` (from `plugin-shell`):** Allows the agent to clear its shell command history.
+- **`REFLECT` (from `plugin-auto`):** Enables the agent to perform self-assessment, generate thoughtful responses, and decide on next steps as part of its autonomous loop.
 
-**5.3. Actions Implemented**
+**4.4. Data Display/Providers**
 
-- **`CREATE_TODO` (`actions/createTodo.ts`):**
-  - Uses LLM (`extractTodoInfo`) to parse task details (name, description, type, priority, urgency, dueDate) from user message.
-  - Handles defaults (e.g., priority 3 for one-off).
-  - Initiates a confirmation flow using `AWAITING_CHOICE` task (`CONFIRM_TODO_CREATION`) presented via the bootstrap `choiceProvider` and handled by `choiceAction`.
-  - On confirmation (received via `options` in a subsequent handler call), creates the task using `runtime.createTask` with appropriate tags and metadata.
-  - Validation: Always `true` (intent determined by handler).
-- **`COMPLETE_TODO` (`actions/completeTodo.ts`):**
-  - Uses LLM (`extractTaskCompletion`) to identify the task to complete from available active tasks.
-  - Handles completion differently based on task type:
-    - **Daily:** Increments `streak`, adds `completed` tag (removed by daily reset worker), awards points (base + streak bonus).
-    - **One-off:** Checks `dueDate` for on-time/late status, adds `completed` tag, awards points based on status/priority/urgency.
-    - **Aspirational:** Awards fixed points, adds `completed` tag.
-  - Uses `runtime.updateTask` to modify tags/metadata.
-  - Integrates with `pointsService.addPoints`.
-  - Validation: Requires active (non-completed) `todo` tasks in the room.
-- **`UPDATE_TODO` (`actions/updateTodo.ts`):**
-  - Uses LLM (`extractTaskSelection`) to identify the task to update.
-  - Uses LLM (`extractTaskUpdate`) to parse desired changes (name, description, priority, urgent, dueDate, recurring).
-  - Initiates a confirmation flow using `AWAITING_CHOICE` task (`CONFIRM_TODO_UPDATE`).
-  - On confirmation, applies changes using `runtime.updateTask`.
-  - Validation: Requires active (non-completed) `todo` tasks in the room.
-- **`CANCEL_TODO` (`actions/cancelTodo.ts`):**
-  - Uses LLM (`extractTaskCancellation`) to identify the task to cancel.
-  - Initiates a confirmation flow using `AWAITING_CHOICE` task (`CONFIRM_TODO_CANCELLATION`).
-  - On confirmation, deletes the task using `runtime.deleteTask`.
-  - Validation: Requires active (non-completed) `todo` tasks in the room.
+- (Potential for MVP+) A provider could display the agent's current primary goal, the status of its autonomous loop (active, idle, error), a list of recently executed autonomous actions, or key memories influencing its decisions.
 
-**5.4. Points System (`pointsService.ts`)**
+**4.5. Technical Implementation**
 
-- Stores user points in an Entity Component (`userPoints`). Creates component if it doesn't exist.
-  - _Caveat:_ Uses placeholder UUIDs for `roomId`/`worldId` during creation, needs refinement for proper context association.
-- `calculatePoints`: Provides logic for point values based on task type, priority, urgency, on-time status, and streak.
-- `addPoints`: Updates the user's point total and maintains a short history.
-- `getPoints`: Retrieves the current point total.
+- Built upon the ElizaOS `Plugin` architecture for modularity and extensibility.
+- Leverages `@elizaos/core` for runtime functionalities, action definitions, state management, and inter-plugin communication.
+- Demonstrates best practices for creating new actions, services, and providers within ElizaOS.
 
-**5.5. Reminders (`reminderService.ts`)**
+### 5. Future Roadmap
 
-- Runs as an ElizaOS Service.
-- Periodically (hourly) checks for `one-off` tasks where `dueDate` is in the past.
-- Sends a reminder message to the task's `roomId` if overdue and a reminder hasn't been sent within the `REMINDER_COOLDOWN` (24 hours).
-- Updates task metadata (`lastReminderSent`) after sending.
+**5.1. MVP+1 (Near-Term Enhancements)**
 
-**5.6. Data Display (`providers/todos.ts`)**
+- **Enhanced Goal Management:**
+  - Actions to allow users/other systems to set, update, and query the agent's high-level goals.
+  - Agent ability to persist and track progress towards these goals.
+- **Basic Dynamic Planning:**
+  - Agent can break down simple, high-level goals into a sequence of known actions (e.g., using `REFLECT` to reason and then `RUN_SHELL_COMMAND`).
+- **Skill/Tool Discovery & Usage:**
+  - Mechanism for the agent to become aware of available actions/plugins (beyond its core set) and decide when to use them.
+- **Improved Self-Monitoring & Reporting:**
+  - More detailed status updates from the agent regarding its autonomous operations, decision-making rationale, and confidence levels.
+- **Contextual Memory Enrichment:**
+  - Automatically enriching memories with more contextual information (e.g., why a shell command was run in relation to a goal).
 
-- `TODOS` provider fetches active tasks (`runtime.getTasks`) and user points (`getPoints`).
-- Categorizes tasks (Daily, One-off, Aspirational, Recently Completed).
-- Formats the information into a text block for the agent's context.
-- _Caveat:_ Contains minor, unresolved linter warnings regarding date type checking.
+**5.2. Phase 2 (Medium-Term Features)**
 
-**5.7. Technical Implementation**
+- **Advanced Planning & Task Decomposition:**
+  - Integration of more sophisticated planning algorithms (e.g., HTN, PDDL-like) for complex, multi-step tasks.
+- **Learning from Interaction & Feedback:**
+  - Agent adapts its strategies based on the success/failure of its actions and explicit user feedback.
+  - Example: Learning which shell command sequences are most effective for certain tasks.
+- **Extended Environment Interaction:**
+  - Plugins for web browsing (information gathering, form submission).
+  - Plugins for advanced file system manipulation and data processing.
+- **Sophisticated Error Handling & Autonomous Recovery:**
+  - Agent can diagnose common errors in its operations (e.g., failed shell commands) and attempt recovery strategies.
+- **Resource Management:**
+  - Agent awareness and management of its own computational resources, API rate limits, or other operational constraints.
 
-- Implemented as an ElizaOS `Plugin` (`plugin-todo`).
-- Leverages `@elizaos/core` for runtime, tasks, actions, providers, services, components.
-- Uses `zod` for potential configuration validation (though not heavily used in MVP).
-- Relies on `bootstrapPlugin` for handling `AWAITING_CHOICE` tasks via `choiceProvider` and `choiceAction`.
+**5.3. Phase 3 (Long-Term Vision)**
 
-### 6. Future Roadmap
+- **Proactive Assistance & Initiative:**
+  - Agent anticipates user needs or identifies opportunities for autonomous action based on patterns and context.
+- **Multi-Agent Collaboration:**
+  - (If supported by ElizaOS) Agents can coordinate and collaborate on complex goals.
+- **Ethical Decision-Making Frameworks:**
+  - Implementation of configurable ethical guidelines and safety protocols for more complex autonomous choices.
+- **User-Configurable Autonomy Levels:**
+  - Allow users to define the degree of freedom and types of actions the agent can take autonomously.
+- **Self-Improvement & Skill Acquisition:**
+  - Agent can identify gaps in its capabilities and suggest or even attempt to acquire new skills (e.g., learning to use new software via shell interactions).
 
-**6.1. MVP+1 (Near-Term Enhancements)**
+### 6. Technical Considerations
 
-- **Refined Points/Leveling:**
-  - Define concrete point values for all scenarios.
-  - Implement a basic leveling system based on points thresholds (stored in `userPoints` component).
-  - Display level in `TODOS` provider.
-- **Enhanced Reminders:**
-  - Allow configuration of reminder frequency/timing.
-  - Integrate with Discord service to send DMs or pings for reminders.
-  - Add ability to "snooze" tasks/reminders.
-- **Daily Task Reset Robustness:**
-  - Ensure the `RESET_DAILY_TASKS` worker handles different timezones or runs reliably at the user's local start-of-day. Consider making interval configurable.
-- **Improved Points Component Context:** Resolve the placeholder UUID issue in `pointsService` by associating the component with the user's primary World or a designated global context.
-- **Basic Reporting:** Enhance `TODOS` provider or add a new action to show point history, completion stats over time (e.g., last 30 days).
-- **Task Querying:** Add action(s) to query/search tasks (e.g., "show my urgent tasks", "what's due this week?").
+- **Architecture:** ElizaOS plugin architecture supports modular development. Complex autonomy may require careful design of inter-plugin communication, shared state, and event handling.
+- **State Management:** Robust and efficient state management is crucial for an autonomous agent to maintain its understanding of the world, its goals, its capabilities, and its history. This includes both short-term operational memory and long-term learned knowledge.
+- **Decision Making Engine:** The core of autonomy. This could range from rule-based systems and state machines in early stages to sophisticated LLM-driven reasoning, classical planners, or reinforcement learning agents.
+- **Security & Safety:** Paramount for agents with capabilities like shell access. This includes:
+  - Granular permissions and sandboxing for risky actions.
+  - User confirmation for sensitive operations.
+  - Clear audit trails of autonomous decisions and actions.
+  - Mechanisms for human override and emergency shutdown.
+- **Observability & Debugging:** Tools and techniques to monitor the agent's internal state, decision processes, and to debug unexpected behaviors.
+- **Performance & Scalability:** Autonomous agents, especially those with learning capabilities or long-running tasks, need to be efficient in resource usage.
 
-**6.2. Phase 2 (Medium-Term Features)**
+### 7. Open Questions & Risks
 
-- **Multi-Channel Reminders:**
-  - Integrate Twilio Plugin for SMS reminders (requires Twilio setup/secrets).
-- **Chrome Extension (Monitoring - Phase 1):**
-  - Develop a simple Chrome extension to track active tab URL and time spent.
-  - Send basic browsing data (domain, time) securely to a dedicated API endpoint exposed by the ElizaOS agent (requires adding a route to the plugin).
-  - Store this data (e.g., as custom memories or dedicated components).
-  - _Security/Privacy:_ Requires explicit user installation and consent. Data transmission must be secure. Start with non-sensitive data (e.g., domains, not full URLs).
-- **Basic Time Tracking Analysis:**
-  - New provider/action to summarize time spent on tracked websites (from Chrome extension data).
-  - Potentially link tasks to website usage (e.g., "Did I spend time on researchgate.net for my 'Write Report' task?").
+- **Safety & Reliability:** How to ensure autonomous agents with powerful tools (like shell access) operate safely and reliably, avoiding unintended consequences?
+- **Defining Boundaries:** What are the appropriate boundaries and limitations for agent autonomy in various contexts? How are these enforced?
+- **Explainability & Trust:** How can the agent's decision-making processes be made transparent and understandable to users to build trust?
+- **Debugging Complexity:** Debugging autonomous behavior can be challenging due to emergent properties and complex interactions.
+- **Ethical Implications:** As agents become more autonomous, addressing ethical considerations regarding their actions, biases, and societal impact is critical.
+- **Managing Complexity:** The internal complexity of an agent can grow rapidly with increasing autonomy and capabilities. How can this be managed to ensure maintainability and robustness?
 
-**6.3. Phase 3 (Long-Term Vision)**
+### 8. Success Metrics (MVP)
 
-- **System Integration (Website Blocking):**
-  - Requires OS-level integration or a more sophisticated browser extension with blocking capabilities.
-  - Agent Action (`BLOCK_WEBSITE`) triggers the blocking mechanism.
-  - Logic for conditional blocking (e.g., "Block Twitter until daily tasks are done").
-  - _Complexity/Risk:_ High. Significant security, privacy, and cross-platform compatibility challenges. Needs careful design and robust implementation. Requires user trust and clear consent.
-- **Screen Monitoring & Analysis:**
-  - Agent action to trigger screen capture.
-  - Secure transmission of screenshot to agent backend.
-  - Integration with Vision models (`ModelType.IMAGE_DESCRIPTION`) to describe screen content.
-  - Store descriptions as memories associated with user activity.
-  - _Complexity/Risk:_ Very High. Extreme privacy implications. Performance intensive. Requires robust security and explicit, granular user consent for each capture.
-- **Advanced Behavioral Insights:**
-  - Use LLMs to analyze combined task completion data, time tracking data, and potentially screen analysis data.
-  - Provide insights like "You tend to get distracted by news sites when working on 'Project X'".
-  - Proactive suggestions based on patterns.
+- The agent can reliably execute shell commands provided via natural language or as part of an autonomous decision by `plugin-auto`, with results correctly logged.
+- The `plugin-auto` successfully drives basic autonomous behavior, such as a reflect-and-act loop, according to predefined logic.
+- The agent demonstrates basic self-status reporting (e.g., logging its current action or thought process).
+- The provided examples and documentation are clear enough for a developer to understand the core mechanics and begin extending the `autonomous-starter` project.
+- Key actions like `RUN_SHELL_COMMAND` and `REFLECT` are functional and demonstrate the intended patterns for interaction and data logging.
 
-### 7. Technical Considerations
+### 9. Release Criteria (MVP)
 
-- **Architecture:** ElizaOS plugin architecture provides good modularity for MVP. Future features like the Chrome extension and system integration will require separate components communicating with the ElizaOS agent via APIs.
-- **Data Storage:**
-  - MVP: Core Tasks and Entity Components are sufficient.
-  - Future: May need dedicated database tables or structures for time tracking, behavior logs, etc., if component storage becomes inefficient. Consider performance implications of querying large numbers of tasks/components.
-- **Security & Privacy:** Paramount for features involving monitoring or system control. Requires:
-  - Explicit user consent for all monitoring/control features.
-  - Secure data transmission (HTTPS).
-  - Secure storage of sensitive data.
-  - Transparency about what data is collected and how it's used.
-  - Careful permission handling for system control actions.
-- **Scalability:** Currently single-user focused. Open-sourcing requires considering multi-tenant database design, resource isolation, and robust error handling if adopted by others.
-- **Platform Compatibility:** System control and deep browser integration are highly OS/browser-dependent. Focus initially on specific target platforms (e.g., macOS/Chrome).
-
-### 8. Open Questions & Risks
-
-- How to reliably determine the correct `worldId`/`roomId` for the global `userPoints` component?
-- How robust is the bootstrap `choiceAction` interaction for confirmation flows? Needs testing.
-- How to securely implement system control features without creating vulnerabilities?
-- How to handle the significant privacy implications of behavior/screen monitoring ethically and technically?
-- What is the best way to model the "leveling" aspect beyond simple points?
-- How to manage the complexity and potential performance impact of analyzing large amounts of user activity data in later phases?
-- Cross-platform consistency for reminders and system integrations.
-
-### 9. Success Metrics (MVP)
-
-- User (developer) can successfully create, view, update, complete, and cancel tasks of all defined types via the agent.
-- Points are correctly calculated and awarded upon task completion.
-- `TODOS` provider accurately reflects current tasks and points.
-- `TodoReminderService` successfully sends reminders for overdue one-off tasks.
-- Action validation prevents actions from being offered in incorrect contexts (e.g., completing a non-existent task).
-
-### 10. Release Criteria (MVP)
-
-- All features defined in Section 5 (MVP Definition) are implemented in the `plugin-todo`.
-- Core functionality is tested (manual testing via agent interaction is acceptable for MVP).
-- Linter errors (excluding persistent ones in `providers/todos.ts`) are resolved.
-- Documentation (this PRD, README updates) reflects the MVP state.
-
----
-
-TODO
-
-```
-Onboarding
-
-What is the user's name?
-Age?
-Weight?
-Height?
-When does the user wake up?
-When do they go to sleep
-
-Things to fix
-
-22:12 (7 minutes ago) [ee8e45fe-c55f-0557-aebd-50828d849342] user: hey whats up
--> shorten to the first section of uuid
-
-check composeState structure and document since its confusing
-composeState should probably include all non-dynamic providers, seems to not (at least in bootstrap)
-```
+- Core `plugin-shell` and `plugin-auto` are integrated and functional within the `autonomous-starter` project.
+- At least one clear example of an autonomous loop leveraging both reflection (`REFLECT`) and shell execution (`RUN_SHELL_COMMAND`) is implemented and working.
+- This `README.md` is updated to accurately describe the MVP's features, architecture, and usage.
+- Basic setup instructions are provided to allow a developer to run the `autonomous-starter` agent.
+- All critical linter errors and bugs in the core MVP functionality are resolved.
