@@ -83,10 +83,11 @@ export const replyAction = {
     }
 
     // Only generate response using LLM if no suitable response was found
-    state = await runtime.composeState(message, [
-      ...(message.content.providers ?? []),
-      'RECENT_MESSAGES',
-    ]);
+    state = await runtime.composeState(
+      message,
+      [...(message.content.providers ?? []), 'RECENT_MESSAGES'],
+      true
+    );
 
     const prompt = composePromptFromState({
       state,

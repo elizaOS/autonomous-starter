@@ -1,6 +1,6 @@
 {
-  "name": "thesystem",
-  "description": "Project starter for elizaOS",
+  "name": "@elizaos/auto",
+  "description": "Auto agent starter for elizaOS",
   "version": "1.0.0-beta.40",
   "type": "module",
   "private": true,
@@ -91,7 +91,7 @@
   "scripts": {
     "start": "bun run build && elizaos start",
     "dev": "bun run build && elizaos dev",
-    "build": "vite build && tsup",
+    "build": "tsup",
     "lint": "prettier --write ./src",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",

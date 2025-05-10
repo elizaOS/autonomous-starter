@@ -1,0 +1,3 @@
+export enum EventType {
+  AUTO_MESSAGE_RECEIVED = 'AUTO_MESSAGE_RECEIVED',
+}
