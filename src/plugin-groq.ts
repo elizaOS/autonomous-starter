@@ -35,8 +35,8 @@ function findModelName(model: ModelTypeName): TiktokenModel {
   try {
     const name =
       model === ModelType.TEXT_SMALL
-        ? (process.env.GROQ_SMALL_MODEL ?? 'llama-3.1-8b-instant')
-        : (process.env.GROQ_LARGE_MODEL ?? 'llama-3.2-90b-vision-preview');
+        ? (process.env.GROQ_SMALL_MODEL ?? 'meta-llama/llama-4-scout-17b-16e-instruct')
+        : (process.env.GROQ_LARGE_MODEL ?? 'meta-llama/llama-4-maverick-17b-128e-instruct');
     return name as TiktokenModel;
   } catch (error) {
     logger.error('Error in findModelName:', error);

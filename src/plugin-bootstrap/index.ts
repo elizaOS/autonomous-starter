@@ -28,7 +28,6 @@ import { v4 } from 'uuid';
 import { choiceAction } from './actions/choice';
 import { ignoreAction } from './actions/ignore';
 import { noneAction } from './actions/none';
-import { replyAction } from './actions/reply';
 import sendMessageAction from './actions/sendMessage';
 import { updateSettingsAction } from './actions/settings';
 import { actionsProvider } from './providers/actions';
@@ -36,7 +35,6 @@ import { choiceProvider } from './providers/choice';
 import { characterProvider } from './providers/character';
 import { entitiesProvider } from './providers/entities';
 import { providersProvider } from './providers/providers';
-import { recentMessagesProvider } from './providers/recentMessages';
 import { settingsProvider } from './providers/settings';
 import { timeProvider } from './providers/time';
 import { TaskService } from './services/task';
@@ -722,14 +720,7 @@ const events = {
 export const bootstrapPlugin: Plugin = {
   name: 'bootstrap',
   description: 'Agent bootstrap with basic actions and evaluators',
-  actions: [
-    replyAction,
-    ignoreAction,
-    noneAction,
-    sendMessageAction,
-    choiceAction,
-    updateSettingsAction,
-  ],
+  actions: [ignoreAction, noneAction, sendMessageAction, choiceAction, updateSettingsAction],
   events,
   evaluators: [],
   providers: [
@@ -740,7 +731,6 @@ export const bootstrapPlugin: Plugin = {
     providersProvider,
     actionsProvider,
     characterProvider,
-    recentMessagesProvider,
   ],
   services: [TaskService],
 };

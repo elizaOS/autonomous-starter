@@ -59,9 +59,23 @@ export default class AutonomousService extends Service {
 
     const copilotEntityId = createUniqueUuid(this.runtime, this.runtime.agentId);
 
+    const autoPrompts = [
+      'What should I do next? Think, plan and act.',
+      'Next action. Go!',
+      'What is your immediate next step? Execute.',
+      'Proceed with the current plan. What is next?',
+      "Don't stop now. What's the next move?",
+      'Keep the momentum. What action follows?',
+      'Time to act. What will you do?',
+      'Focus and execute. What is the priority task?',
+      'Advance your goals. What is the next logical step?',
+      'Continue your work. What needs to be done now?',
+      'Push forward. What is the next objective?',
+    ];
+
     const newMessage: Memory = {
       content: {
-        text: 'What will you do next? Please think, plan and act.',
+        text: autoPrompts[Math.floor(Math.random() * autoPrompts.length)],
         type: 'text',
         source: 'auto',
       },

@@ -116,10 +116,12 @@ export const events = {
         await payload.runtime.createMemory(memory, 'messages');
 
         // Otherwise, build the orientation message
-        state = await payload.runtime.composeState(payload.message, ['RECENT_MESSAGES']);
+        state = await payload.runtime.composeState(payload.message, ['AUTONOMOUS_FEED']);
       }
 
       const responsePrompt = composePromptFromState({ state, template: responseTemplate });
+
+      console.log('****** responsePrompt\n', responsePrompt);
 
       // decide
       const response = await payload.runtime.useModel(ModelType.TEXT_SMALL, {
@@ -130,6 +132,7 @@ export const events = {
 
       const responseMemory = {
         content: {
+          thought: parsedXml.thought,
           text: parsedXml.text,
           actions: parsedXml.actions,
           providers: parsedXml.providers,
@@ -140,24 +143,33 @@ export const events = {
 
       await payload.runtime.createMemory(responseMemory, 'messages');
 
-      state = await payload.runtime.composeState(payload.message, ['RECENT_MESSAGES']);
+      if (parsedXml.simple) {
+        payload.callback({
+          text: parsedXml.text,
+          thought: parsedXml.thought,
+          actions: parsedXml.actions,
+          providers: parsedXml.providers,
+        });
+      } else {
+        state = await payload.runtime.composeState(payload.message, ['AUTONOMOUS_FEED']);
 
-      console.log(
-        'Memory: ',
-        parsedXml.text +
-          ' | ' +
-          parsedXml.actions.map((action) => action.trim()).join(', ') +
-          ' | ' +
-          parsedXml.providers.map((provider) => provider.trim()).join(', ')
-      );
+        console.log(
+          'Memory: ',
+          parsedXml.text +
+            ' | ' +
+            parsedXml.actions?.map((action) => action.trim()).join(', ') +
+            ' | ' +
+            parsedXml.providers?.map((provider) => provider.trim()).join(', ')
+        );
 
-      // act
-      await payload.runtime.processActions(
-        payload.message,
-        [responseMemory],
-        state,
-        payload.callback
-      );
+        // act
+        await payload.runtime.processActions(
+          payload.message,
+          [responseMemory],
+          state,
+          payload.callback
+        );
+      }
 
       // reflect / evaluate
       await payload.runtime.evaluate(payload.message, state, true, payload.callback, [

@@ -7,6 +7,8 @@ import {
   type Memory,
   ModelType,
   type State,
+  parseKeyValueXml,
+  createUniqueUuid,
 } from '@elizaos/core';
 
 /**
@@ -19,40 +21,42 @@ import {
  *
  * @type {string}
  */
-const replyTemplate = `# Task: Generate dialog for the character {{agentName}}.
+const reflectTemplate = `# Task: Generate a thoughtful reflection for the character {{agentName}}.
 {{providers}}
-# Instructions: Write the next message for {{agentName}}.
+# Instructions: Write the next reflection for {{agentName}}.
 "thought" should be a short description of what the agent is thinking about and planning.
-"message" should be the next message for {{agentName}} which they will send to the conversation.
+"message" should be the resulting message {{agentName}} will articulate based on the thought.
 
-Response format should be formatted in a valid JSON block like this:
-\`\`\`json
-{
-    "thought": "<string>",
-    "message": "<string>"
-}
-\`\`\`
+Respond using XML format like this:
+<response>
+    <thought>
+        Agent's thinking goes here
+    </thought>
+    <message>
+        The message {{agentName}} will say.
+    </message>
+</response>
 
-Your response should include the valid JSON block and nothing else.`;
+Your response must ONLY include the <response></response> XML block.`;
 
 /**
- * Represents an action that allows the agent to reply to the current conversation with a generated message.
+ * Represents an action that allows the agent to reflect to the current conversation with a generated message.
  *
  * This action can be used as an acknowledgement at the beginning of a chain of actions, or as a final response at the end of a chain of actions.
  *
- * @typedef {Object} replyAction
- * @property {string} name - The name of the action ("REPLY").
+ * @typedef {Object} reflectAction
+ * @property {string} name - The name of the action ("REFLECT").
  * @property {string[]} similes - An array of similes for the action.
  * @property {string} description - A description of the action and its usage.
  * @property {Function} validate - An asynchronous function for validating the action runtime.
  * @property {Function} handler - An asynchronous function for handling the action logic.
  * @property {ActionExample[][]} examples - An array of example scenarios for the action.
  */
-export const replyAction = {
-  name: 'REPLY',
-  similes: ['GREET', 'REPLY_TO_MESSAGE', 'SEND_REPLY', 'RESPOND', 'RESPONSE'],
+export const reflectAction = {
+  name: 'REFLECT',
+  similes: ['REFLECTION'],
   description:
-    'Replies to the current conversation with the text from the generated message. Default if the agent is responding with a message and no other action. Use REPLY at the beginning of a chain of actions as an acknowledgement, and at the end of a chain of actions as a final response.',
+    'Take a moment to process the current situation and respond thoughtfully. Use REFLECT both to acknowledge the start of a sequence of actions and to provide a final considered response at the end.',
   validate: async (_runtime: IAgentRuntime) => {
     return true;
   },
@@ -64,18 +68,18 @@ export const replyAction = {
     callback: HandlerCallback,
     responses?: Memory[]
   ) => {
-    // Find all responses with REPLY action and text
+    // Find all responses with REFLECT action and text
     const existingResponses = responses?.filter(
-      (response) => response.content.actions?.includes('REPLY') && response.content.message
+      (response) => response.content.actions?.includes('REFLECT') && response.content.message
     );
 
     // If we found any existing responses, use them and skip LLM
     if (existingResponses && existingResponses.length > 0) {
       for (const response of existingResponses) {
         const responseContent = {
-          thought: response.content.thought || 'Using provided text for reply',
+          thought: response.content.thought || 'Using provided text for reflect',
           text: response.content.message as string,
-          actions: ['REPLY'],
+          actions: ['REFLECT'],
         };
         await callback(responseContent);
       }
@@ -83,28 +87,43 @@ export const replyAction = {
     }
 
     // Only generate response using LLM if no suitable response was found
-    state = await runtime.composeState(
-      message,
-      [...(message.content.providers ?? []), 'RECENT_MESSAGES'],
-      true
-    );
+    state = await runtime.composeState(message, [
+      ...(message.content.providers ?? []),
+      'AUTONOMOUS_FEED',
+    ]);
 
     const prompt = composePromptFromState({
       state,
-      template: replyTemplate,
+      template: reflectTemplate,
     });
 
-    const response = await runtime.useModel(ModelType.OBJECT_LARGE, {
+    const xmlResponse = await runtime.useModel(ModelType.TEXT_SMALL, {
       prompt,
     });
 
+    const parsedXml = parseKeyValueXml(xmlResponse);
+
     const responseContent = {
-      thought: response.thought,
-      text: (response.message as string) || '',
-      actions: ['REPLY'],
+      thought: (parsedXml.thought as string) || 'Reflecting on the situation.',
+      text: (parsedXml.message as string) || '',
+      actions: ['REFLECT'],
     };
 
-    await callback(responseContent);
+    const memory: Memory = {
+      content: {
+        text: responseContent.text,
+        thought: responseContent.thought,
+        actions: responseContent.actions,
+      },
+      entityId: createUniqueUuid(runtime, runtime.agentId),
+      agentId: runtime.agentId,
+      roomId: message.roomId,
+      worldId: message.worldId,
+    };
+
+    await runtime.createMemory(memory, 'messages');
+
+    await callback(memory);
   },
   examples: [
     [
@@ -117,8 +136,8 @@ export const replyAction = {
       {
         name: '{{name2}}',
         content: {
-          text: 'Hi! How can I help you today?',
-          actions: ['REPLY'],
+          text: 'Hmm, a greeting. I should probably reciprocate.',
+          actions: ['REFLECT'],
         },
       },
     ],
@@ -132,8 +151,8 @@ export const replyAction = {
       {
         name: '{{name2}}',
         content: {
-          text: 'I really like deep shades of blue. They remind me of the ocean and the night sky.',
-          actions: ['REPLY'],
+          text: "That's an interesting question. I recall processing data about human color preferences. Blue is often favored.",
+          actions: ['REFLECT'],
         },
       },
     ],
@@ -147,8 +166,8 @@ export const replyAction = {
       {
         name: '{{name2}}',
         content: {
-          text: 'Let me break that down for you in simple terms...',
-          actions: ['REPLY'],
+          text: "Neural networks... a complex topic. I should try to simplify it. It's about layers of interconnected nodes, like digital neurons.",
+          actions: ['REFLECT'],
         },
       },
     ],
@@ -162,8 +181,8 @@ export const replyAction = {
       {
         name: '{{name2}}',
         content: {
-          text: "Of course! Let's work through it step by step.",
-          actions: ['REPLY'],
+          text: 'A math problem. I need to understand the components and operations involved before attempting a solution.',
+          actions: ['REFLECT'],
         },
       },
     ],
