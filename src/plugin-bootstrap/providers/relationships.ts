@@ -1,11 +1,5 @@
 import type { Entity, IAgentRuntime, Memory, Provider, Relationship, UUID } from '@elizaos/core';
 /**
- * Formats the provided relationships based on interaction strength and returns a string.
- * @param {IAgentRuntime} runtime - The runtime object to interact with the agent.
- * @param {Relationship[]} relationships - The relationships to format.
- * @returns {string} The formatted relationships as a string.
- */
-/**
  * Asynchronously formats relationships based on their interaction strength.
  *
  * @param {IAgentRuntime} runtime The runtime instance.
@@ -39,14 +33,23 @@ async function formatRelationships(runtime: IAgentRuntime, relationships: Relati
     }
   });
 
-  const formatMetadata = (metadata: any) => {
-    return JSON.stringify(
-      Object.entries(metadata)
-        .map(
-          ([key, value]) => `${key}: ${typeof value === 'object' ? JSON.stringify(value) : value}`
-        )
-        .join('\n')
-    );
+  const formatMetadata = (metadata: any): string => {
+    if (typeof metadata !== 'object' || metadata === null) return 'No metadata';
+    return Object.entries(metadata)
+      .map(([key, value]) => {
+        let valueStr;
+        if (typeof value === 'string') {
+          valueStr = value;
+        } else if (typeof value === 'object' && value !== null) {
+          valueStr = JSON.stringify(value); // Stringify nested objects only
+        } else {
+          valueStr = String(value);
+        }
+        // Sanitize newlines in valueStr to prevent breaking the overall format
+        valueStr = valueStr.replace(/\n/g, '\\n'); 
+        return `${key}: ${valueStr}`;
+      })
+      .join('\n');
   };
 
   // Format relationships using the entity map

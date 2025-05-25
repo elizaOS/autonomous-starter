@@ -9,12 +9,16 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+import { openaiPlugin } from '@elizaos/plugin-openai';
+import { knowledgePlugin } from '@elizaos/plugin-knowledge';
 import { autoPlugin } from './plugin-auto';
 import { bootstrapPlugin } from './plugin-bootstrap';
 import { groqPlugin } from './plugin-groq';
-import { openaiPlugin } from '@elizaos/plugin-openai';
-import { shellPlugin } from './plugin-shell';
 import { pluginManagerPlugin } from './plugin-manager';
+import { robotPlugin } from './plugin-robot';
+import { shellPlugin } from './plugin-shell';
+import { experiencePlugin } from './plugin-experience';
+import { envPlugin } from './plugin-env';
 
 /**
  * Represents the default character (Autoliza) with her specific attributes and behaviors.
@@ -182,6 +186,10 @@ export const projectAgent: ProjectAgent = {
     openaiPlugin,
     shellPlugin,
     pluginManagerPlugin,
+    robotPlugin,
+    knowledgePlugin,
+    experiencePlugin,
+    envPlugin,
   ],
 };
 const project: Project = {

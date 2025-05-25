@@ -16,11 +16,6 @@ import {
  *
  * @type {string}
  */
-/**
- * Template for generating dialog and actions for a character.
- *
- * @type {string}
- */
 const reflectTemplate = `# Task: Generate a thoughtful reflection for the character {{agentName}}.
 {{providers}}
 # Instructions: Write the next reflection for {{agentName}}.
@@ -123,7 +118,7 @@ export const reflectAction = {
 
     await runtime.createMemory(memory, 'messages');
 
-    await callback(memory);
+    await callback(memory.content);
   },
   examples: [
     [

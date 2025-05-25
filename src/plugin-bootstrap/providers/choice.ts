@@ -8,12 +8,6 @@ import { logger } from '@elizaos/core';
  * @property {string} name - The name of the option.
  * @property {string} [description] - The description of the option (optional).
  */
-/**
- * Interface for an object representing an option.
- * @typedef {Object} OptionObject
- * @property {string} name - The name of the option.
- * @property {string} [description] - The description of the option (optional).
- */
 interface OptionObject {
   name: string;
   description?: string;
@@ -75,20 +69,21 @@ export const choiceProvider: Provider = {
       if (task.metadata?.options) {
         output += '   Options:\n';
 
-        // Handle both string[] and OptionObject[] formats
-        const options = task.metadata.options as string[] | OptionObject[];
+        const options = task.metadata.options as Array<string | OptionObject>; // Type assertion
 
-        options.forEach((option) => {
-          if (typeof option === 'string') {
-            // Handle string option
-            const description =
-              task.metadata?.options.find((o) => o.name === option)?.description || '';
-            output += `   - \`${option}\` ${description ? `- ${description}` : ''}\n`;
-          } else {
-            // Handle option object
-            output += `   - \`${option.name}\` ${option.description ? `- ${option.description}` : ''}\n`;
-          }
-        });
+        if (options.every(opt => typeof opt === 'string')) {
+          (options as string[]).forEach((optionName) => {
+            output += `   - \`${optionName}\`\n`; // Just list string option
+          });
+        } else if (options.every(opt => typeof opt === 'object' && opt !== null && 'name' in opt)){
+          (options as OptionObject[]).forEach((optionObj) => {
+            output += `   - \`${optionObj.name}\` ${optionObj.description ? `- ${optionObj.description}` : ''}\n`;
+          });
+        } else {
+          // Handle mixed or unexpected format - log error or provide generic message
+          logger.warn(`[choiceProvider] Task ${task.id} has options in an unexpected format.`);
+          output += `   - Options format unclear for this task.\n`;
+        }
       }
       output += '\n';
     });

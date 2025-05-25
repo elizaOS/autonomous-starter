@@ -1,13 +1,6 @@
 import type { Action, ActionExample, IAgentRuntime, Memory } from '@elizaos/core';
 
 /**
- * Represents the none action.
- *
- * This action responds but performs no additional action. It is the default if the agent is speaking and not doing anything additional.
- *
- * @type {Action}
- */
-/**
  * Represents an action that responds but performs no additional action.
  * This is the default behavior if the agent is speaking and not doing anything additional.
  * @type {Action}

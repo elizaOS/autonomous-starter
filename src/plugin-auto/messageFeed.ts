@@ -13,6 +13,8 @@ import {
   type UUID,
 } from '@elizaos/core';
 
+const AUTO_ROOM_SEED = 'autonomous_room_singleton'; // Ensure this matches service.ts
+
 /**
  * A provider object that retrieves recent messages, interactions, and memories based on a given message.
  * @typedef {object} Provider
@@ -29,7 +31,7 @@ export const autonomousFeedProvider: Provider = {
   description: 'Raw feed of messages, interactions and other memories',
   position: 100,
   get: async (runtime: IAgentRuntime, message: Memory) => {
-    const autonomousRoomId = createUniqueUuid(runtime, 'auto');
+    const autonomousRoomId = createUniqueUuid(runtime, AUTO_ROOM_SEED);
     const conversationLength = runtime.getConversationLength();
 
     // Parallelize initial data fetching operations including recentInteractions

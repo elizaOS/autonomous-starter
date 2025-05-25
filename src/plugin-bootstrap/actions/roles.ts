@@ -15,24 +15,30 @@ import {
 import dedent from 'dedent';
 
 /**
- * Determines if the user with the current role can modify the role to the new role.
- * @param currentRole The current role of the user making the change
- * @param targetRole The current role of the user being changed (null if new user)
- * @param newRole The new role to assign
- * @returns Whether the role change is allowed
- */
-/**
  * Determines if a user with a given current role can modify the role of another user to a new role.
  * @param {Role} currentRole - The current role of the user attempting to modify the other user's role.
+ * @param {UUID} requesterId - The ID of the entity attempting the change.
  * @param {Role | null} targetRole - The target user's current role. Can be null if the user does not exist.
+ * @param {UUID} targetId - The ID of the entity whose role is being changed.
  * @param {Role} newRole - The new role that the current user is attempting to set for the target user.
  * @returns {boolean} Returns true if the user can modify the role, false otherwise.
  */
-const canModifyRole = (currentRole: Role, targetRole: Role | null, newRole: Role): boolean => {
+const canModifyRole = (
+  requesterRole: Role,
+  requesterId: UUID,
+  targetRole: Role | null,
+  targetId: UUID,
+  newRole: Role
+): boolean => {
   // User's can't change their own role
-  if (targetRole === currentRole) return false;
+  if (requesterId === targetId) {
+    // Allow owner to change their own role if needed (e.g. demotion, though UI should prevent illogical changes)
+    // Or disallow entirely: return false;
+    // For now, let's assume owners can, others cannot change their own.
+    return requesterRole === Role.OWNER;
+  }
 
-  switch (currentRole) {
+  switch (requesterRole) {
     // Owners can do everything
     case Role.OWNER:
       return true;
@@ -132,14 +138,19 @@ export const updateRoleAction: Action = {
     // Extract needed values from message and state
     const { roomId } = message;
     const channelType = message.content.channelType as ChannelType;
-    const serverId = message.content.serverId as string;
-    const worldId = runtime.getSetting('WORLD_ID');
+    const worldIdForRoles = message.worldId; // Assuming message.worldId is the server/world context for roles
+
+    if (!worldIdForRoles) {
+      logger.error('World/Server ID not found on message for role operation');
+      await callback({
+        text: "I couldn't determine the server context for this role operation.",
+        source: message.content.source,
+      });
+      return;
+    }
 
     // First, get the world for this server
-    let world;
-    if (worldId) {
-      world = await runtime.getWorld(worldId as UUID);
-    }
+    let world = await runtime.getWorld(worldIdForRoles);
 
     if (!world) {
       logger.error('World not found');
@@ -226,7 +237,7 @@ export const updateRoleAction: Action = {
       await callback({
         text: 'No valid role assignments found in the request.',
         actions: ['UPDATE_ROLE'],
-        source: 'discord',
+        source: message.content.source, // Use dynamic source
       });
       return;
     }
@@ -235,39 +246,45 @@ export const updateRoleAction: Action = {
     let worldUpdated = false;
 
     for (const assignment of result) {
-      let targetEntity = entities.find((e) => e.id === assignment.entityId);
+      let targetEntity = entities.find((e) => e.id === assignment.entityId || e.names.includes(assignment.entityId) || e.metadata[message.content.source]?.username === assignment.entityId);
       if (!targetEntity) {
-        logger.error('Could not find an ID ot assign to');
+        logger.error(`Could not find an entity to assign to: ${assignment.entityId}`); // Corrected typo
+        await callback({
+          text: `Could not find user: ${assignment.entityId}`,
+          actions: ['UPDATE_ROLE'],
+          source: message.content.source, // Use dynamic source
+        });
+        continue;
       }
 
-      const currentRole = world.metadata.roles[assignment.entityId];
+      const currentTargetRole = world.metadata.roles[targetEntity.id] || Role.NONE;
 
       // Validate role modification permissions
-      if (!canModifyRole(requesterRole, currentRole, assignment.newRole)) {
+      if (!canModifyRole(requesterRole, message.entityId, currentTargetRole, targetEntity.id, assignment.newRole)) {
         await callback({
           text: `You don't have permission to change ${targetEntity.names[0]}'s role to ${assignment.newRole}.`,
           actions: ['UPDATE_ROLE'],
-          source: 'discord',
+          source: message.content.source, // Use dynamic source
         });
         continue;
       }
 
       // Update role in world metadata
-      world.metadata.roles[assignment.entityId] = assignment.newRole;
+      world.metadata.roles[targetEntity.id] = assignment.newRole;
 
       worldUpdated = true;
 
       await callback({
         text: `Updated ${targetEntity.names[0]}'s role to ${assignment.newRole}.`,
         actions: ['UPDATE_ROLE'],
-        source: 'discord',
+        source: message.content.source, // Use dynamic source
       });
     }
 
     // Save updated world metadata if any changes were made
     if (worldUpdated) {
       await runtime.updateWorld(world);
-      logger.info(`Updated roles in world metadata for server ${serverId}`);
+      logger.info(`Updated roles in world metadata for server ${worldIdForRoles}`);
     }
   },
 

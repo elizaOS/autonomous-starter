@@ -2,10 +2,6 @@ import type { IAgentRuntime, Memory, Provider } from '@elizaos/core';
 import { addHeader } from '@elizaos/core';
 
 /**
- * Provider for retrieving list of all data providers available for the agent to use.
- * @type { Provider }
- */
-/**
  * Object representing the providersProvider, which contains information about data providers available for the agent.
  *
  * @type {Provider}

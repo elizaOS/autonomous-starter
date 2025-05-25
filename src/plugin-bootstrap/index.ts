@@ -329,7 +329,7 @@ const messageReceivedHandler = async ({
       } else {
         await runtime.processActions(message, responseMessages, state, callback);
       }
-      // await runtime.evaluate(message, state, shouldRespond, callback, responseMessages);
+      await runtime.evaluate(message, state, true, callback, responseMessages);
 
       onComplete?.();
 

@@ -8,17 +8,6 @@ import type {
 } from '@elizaos/core';
 
 /**
- * Action representing the IGNORE action. This action is used when ignoring the user in a conversation.
- *
- * @type {Action}
- * @property {string} name - The name of the action, which is "IGNORE".
- * @property {string[]} similes - An array of related similes for the action.
- * @property {Function} validate - Asynchronous function that validates the action.
- * @property {string} description - Description of when to use the IGNORE action in a conversation.
- * @property {Function} handler - Asynchronous function that handles the action logic.
- * @property {ActionExample[][]} examples - Array of examples demonstrating the usage of the IGNORE action.
- */
-/**
  * Represents an action called 'IGNORE'.
  *
  * This action is used to ignore the user in a conversation. It should be used when the user is aggressive, creepy, or when the conversation has naturally ended.
@@ -85,7 +74,7 @@ export const ignoreAction: Action = {
       {
         name: '{{name2}}',
         content: {
-          text: 'Uh, don’t let the volatility sway your long-term strategy',
+          text: "Uh, don't let the volatility sway your long-term strategy",
         },
       },
       {

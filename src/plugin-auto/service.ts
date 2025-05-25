@@ -1,6 +1,10 @@
 import { createUniqueUuid, Entity, IAgentRuntime, Memory, Service } from '@elizaos/core';
 import { EventType } from './types';
 
+const AUTO_WORLD_SEED = 'autonomous_world_singleton';
+const AUTO_ROOM_SEED = 'autonomous_room_singleton';
+const COPILOT_ENTITY_SEED = 'autonomous_copilot_singleton';
+
 export default class AutonomousService extends Service {
   static serviceType = 'autonomous';
   capabilityDescription = 'Autonomous agent service, maintains the autonomous agent loop';
@@ -28,10 +32,10 @@ export default class AutonomousService extends Service {
   }
 
   async setupWorld() {
-    const worldId = createUniqueUuid(this.runtime, 'auto');
+    const worldId = createUniqueUuid(this.runtime, AUTO_WORLD_SEED);
     const world = await this.runtime.getWorld(worldId);
 
-    const copilotEntityId = createUniqueUuid(this.runtime, 'copilot');
+    const copilotEntityId = createUniqueUuid(this.runtime, COPILOT_ENTITY_SEED);
 
     const entityExists = await this.runtime.getEntityById(copilotEntityId);
 
@@ -50,14 +54,16 @@ export default class AutonomousService extends Service {
         id: worldId,
         name: 'Auto',
         agentId: this.runtime.agentId,
-        serverId: createUniqueUuid(this.runtime, 'auto'),
+        serverId: worldId,
       });
     }
   }
   async loop() {
     console.log('*** loop');
 
-    const copilotEntityId = createUniqueUuid(this.runtime, this.runtime.agentId);
+    const copilotEntityId = createUniqueUuid(this.runtime, COPILOT_ENTITY_SEED);
+    const worldId = createUniqueUuid(this.runtime, AUTO_WORLD_SEED);
+    const roomId = createUniqueUuid(this.runtime, AUTO_ROOM_SEED);
 
     const autoPrompts = [
       'What should I do next? Think, plan and act.',
@@ -79,8 +85,8 @@ export default class AutonomousService extends Service {
         type: 'text',
         source: 'auto',
       },
-      roomId: createUniqueUuid(this.runtime, 'auto'),
-      worldId: createUniqueUuid(this.runtime, 'auto'),
+      roomId: roomId,
+      worldId: worldId,
       entityId: copilotEntityId,
     };
 

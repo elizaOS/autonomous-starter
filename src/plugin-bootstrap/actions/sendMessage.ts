@@ -58,49 +58,6 @@ import {
  *
  * Make sure to include the ```json``` tags around the JSON object.
  */
-/**
- * Task: Extract Target and Source Information
- *
- * Recent Messages:
- * {{recentMessages}}
- *
- * Instructions:
- * Analyze the conversation to identify:
- * 1. The target type (user or room)
- * 2. The target platform/source (e.g. telegram, discord, etc)
- * 3. Any identifying information about the target
- *
- * Return a JSON object with:
- * {
- *    "targetType": "user|room",
- *    "source": "platform-name",
- *    "identifiers": {
- *      // Relevant identifiers for that target
- *      // e.g. username, roomName, etc.
- *    }
- * }
- *
- * Example outputs:
- * 1. For "send a message to @dev_guru on telegram":
- * {
- *    "targetType": "user",
- *    "source": "telegram",
- *    "identifiers": {
- *      "username": "dev_guru"
- *    }
- * }
- *
- * 2. For "post this in #announcements":
- * {
- *    "targetType": "room",
- *    "source": "discord",
- *    "identifiers": {
- *      "roomName": "announcements"
- *    }
- * }
- *
- * Make sure to include the `json` tags around the JSON object.
- */
 const targetExtractionTemplate = `# Task: Extract Target and Source Information
 
 # Recent Messages:
@@ -165,14 +122,19 @@ export const sendMessageAction: Action = {
 
   validate: async (runtime: IAgentRuntime, message: Memory, _state: State): Promise<boolean> => {
     // Check if we have permission to send messages
-    const worldId = message.roomId;
+    const currentRoomWorldId = message.worldId;
     const agentId = runtime.agentId;
 
-    // Get all components for the current room to understand available sources
-    const roomComponents = await runtime.getComponents(message.roomId, worldId, agentId);
+    if (!currentRoomWorldId) {
+      logger.warn('[sendMessageAction] Validate: message.worldId is missing, cannot determine components for source check.');
+      return false;
+    }
 
-    // Get source types from room components
-    const availableSources = new Set(roomComponents.map((c) => c.type));
+    // Get all components for the current room's world to understand available sources
+    const worldComponents = await runtime.getComponents(undefined, currentRoomWorldId, agentId);
+
+    // Get source types from world components (these represent potential messaging platforms linked to the world)
+    const availableSources = new Set(worldComponents.map((c) => c.type.toLowerCase()));
 
     // TODO: Add ability for plugins to register their sources
     // const registeredSources = runtime.getRegisteredSources?.() || [];

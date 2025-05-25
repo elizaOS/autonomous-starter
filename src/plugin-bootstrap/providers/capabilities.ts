@@ -2,9 +2,6 @@ import type { IAgentRuntime, Memory, Provider, ProviderResult } from '@elizaos/c
 import { logger } from '@elizaos/core';
 
 /**
- * Provider that collects capability descriptions from all registered services
- */
-/**
  * Provides capabilities information for the agent.
  *
  * @param {IAgentRuntime} runtime - The agent runtime instance.

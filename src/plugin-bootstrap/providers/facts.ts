@@ -1,12 +1,6 @@
 import { type IAgentRuntime, Memory, ModelType, Provider, State } from '@elizaos/core';
 
 /**
- * Formats an array of memories into a single string with each memory content text separated by a new line.
- *
- * @param {Memory[]} facts - An array of Memory objects to be formatted.
- * @returns {string} A single string containing all memory content text with new lines separating each text.
- */
-/**
  * Formats an array of Memory objects into a string, joining them with newlines.
  *
  * @param {Memory[]} facts - An array of Memory objects to format.

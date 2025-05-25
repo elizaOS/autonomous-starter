@@ -2,13 +2,6 @@ import type { IAgentRuntime, Memory, Provider, State } from '@elizaos/core';
 import { addHeader, ChannelType } from '@elizaos/core';
 
 /**
- * Character provider object.
- * @typedef {Object} Provider
- * @property {string} name - The name of the provider ("CHARACTER").
- * @property {string} description - Description of the character information.
- * @property {Function} get - Async function to get character information.
- */
-/**
  * Provides character information.
  * @param {IAgentRuntime} runtime - The agent runtime.
  * @param {Memory} message - The message memory.

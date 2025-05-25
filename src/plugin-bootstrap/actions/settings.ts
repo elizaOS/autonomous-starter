@@ -522,6 +522,10 @@ async function handleOnboardingComplete(
     const prompt = composePrompt({
       state: {
         settingsStatus: formatSettingsList(worldSettings),
+        ...state.values,
+        bio: runtime.character.bio,
+        agentName: runtime.character.name,
+        recentMessages: state.text,
       },
       template: completionTemplate,
     });
@@ -535,14 +539,14 @@ async function handleOnboardingComplete(
     await callback({
       text: responseContent.text,
       actions: ['ONBOARDING_COMPLETE'],
-      source: 'discord',
+      source: state.message.content.source,
     });
   } catch (error) {
     logger.error(`Error handling settings completion: ${error}`);
     await callback({
       text: 'Great! All required settings have been configured. Your server is now fully set up and ready to use.',
       actions: ['ONBOARDING_COMPLETE'],
-      source: 'discord',
+      source: state.message.content.source,
     });
   }
 }

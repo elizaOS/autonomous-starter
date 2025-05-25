@@ -2,12 +2,6 @@ import type { IAgentRuntime, Memory, Provider } from '@elizaos/core';
 import { addHeader } from '@elizaos/core';
 
 /**
- * Provides a list of attachments in the current conversation.
- * @param {IAgentRuntime} runtime - The agent runtime object.
- * @param {Memory} message - The message memory object.
- * @returns {Object} The attachments values, data, and text.
- */
-/**
  * Provides a list of attachments sent during the current conversation, including names, descriptions, and summaries.
  * @type {Provider}
  * @property {string} name - The name of the provider (ATTACHMENTS).

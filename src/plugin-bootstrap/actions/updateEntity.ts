@@ -26,11 +26,6 @@ import { v4 as uuidv4 } from 'uuid';
  *
  * @type {string}
  */
-/**
- * Component Template for extracting source and updating component data.
- *
- * @type {string}
- */
 const componentTemplate = `# Task: Extract Source and Update Component Data
 
 {{recentMessages}}
@@ -130,19 +125,29 @@ export const updateEntityAction: Action = {
   name: 'UPDATE_CONTACT',
   similes: ['UPDATE_ENTITY'],
   description:
-    'Add or edit contact details for a person you are talking to or observing in the conversation. Use this when you learn this information from the conversation about a contact. This is for the agent to relate entities across platforms, not for world settings or configuration.',
+    'Add or edit contact details for a person you are talking to or observing in the conversation. Use this when you learn this information from a contact. This is for the agent to relate entities across platforms, not for world settings or configuration.',
 
-  validate: async (_runtime: IAgentRuntime, _message: Memory, _state: State): Promise<boolean> => {
+  validate: async (runtime: IAgentRuntime, message: Memory, _state: State): Promise<boolean> => {
     // Check if we have any registered sources or existing components that could be updated
-    // const worldId = message.roomId;
-    // const agentId = runtime.agentId;
+    const currentRoomWorldId = message.worldId;
+    const agentId = runtime.agentId;
 
-    // // Get all components for the current room to understand available sources
-    // const roomComponents = await runtime.getComponents(message.roomId, worldId, agentId);
+    if (!currentRoomWorldId) {
+      logger.warn('[updateEntityAction] Validate: message.worldId is missing, cannot determine components.');
+      return false;
+    }
 
-    // // Get source types from room components
-    // const availableSources = new Set(roomComponents.map(c => c.type));
-    return true; // availableSources.size > 0;
+    // Get all components for the current room's world to understand available sources
+    // Components might represent existing contact details on different platforms for entities in this world.
+    const worldComponents = await runtime.getComponents(undefined, currentRoomWorldId, agentId);
+
+    // Get source types from world components
+    const availableSources = new Set(worldComponents.map(c => c.type.toLowerCase()));
+    
+    // TODO: Consider also checking runtime.getRegisteredSources() if that becomes available,
+    // to allow updating even if no component of that type yet exists in the world.
+    // For now, it's valid if there are any component types already present in the world context.
+    return availableSources.size > 0;
   },
 
   handler: async (
@@ -236,6 +241,7 @@ export const updateEntityAction: Action = {
           agentId,
           roomId: message.roomId,
           sourceEntityId,
+          createdAt: existingComponent.createdAt || Date.now(),
         });
 
         await callback({
@@ -253,6 +259,7 @@ export const updateEntityAction: Action = {
           agentId,
           roomId: message.roomId,
           sourceEntityId,
+          createdAt: Date.now(),
         });
 
         await callback({
