@@ -159,7 +159,9 @@ export class EnvManagerService extends Service {
               // Ensure all fields from EnvVarConfig are initialized
               lastError: undefined,
             };
-            logger.debug(`[EnvManager] Registered requirement for ${varName} from ${pluginInstance.name}`);
+            logger.debug(
+              `[EnvManager] Registered requirement for ${varName} from ${pluginInstance.name}`
+            );
           }
         }
       }

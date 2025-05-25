@@ -64,7 +64,7 @@
     "ts-node": "^10.9.2",
     "ws": "8.18.0",
     "zod": "3.24.2",
-    "@jitsi/robotjs": "^0.7.0"
+    "@jitsi/robotjs": "^0.6.16"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

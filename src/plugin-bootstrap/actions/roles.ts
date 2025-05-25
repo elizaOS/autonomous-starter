@@ -246,7 +246,12 @@ export const updateRoleAction: Action = {
     let worldUpdated = false;
 
     for (const assignment of result) {
-      let targetEntity = entities.find((e) => e.id === assignment.entityId || e.names.includes(assignment.entityId) || e.metadata[message.content.source]?.username === assignment.entityId);
+      let targetEntity = entities.find(
+        (e) =>
+          e.id === assignment.entityId ||
+          e.names.includes(assignment.entityId) ||
+          e.metadata[message.content.source]?.username === assignment.entityId
+      );
       if (!targetEntity) {
         logger.error(`Could not find an entity to assign to: ${assignment.entityId}`); // Corrected typo
         await callback({
@@ -260,7 +265,15 @@ export const updateRoleAction: Action = {
       const currentTargetRole = world.metadata.roles[targetEntity.id] || Role.NONE;
 
       // Validate role modification permissions
-      if (!canModifyRole(requesterRole, message.entityId, currentTargetRole, targetEntity.id, assignment.newRole)) {
+      if (
+        !canModifyRole(
+          requesterRole,
+          message.entityId,
+          currentTargetRole,
+          targetEntity.id,
+          assignment.newRole
+        )
+      ) {
         await callback({
           text: `You don't have permission to change ${targetEntity.names[0]}'s role to ${assignment.newRole}.`,
           actions: ['UPDATE_ROLE'],

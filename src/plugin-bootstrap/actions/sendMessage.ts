@@ -126,7 +126,9 @@ export const sendMessageAction: Action = {
     const agentId = runtime.agentId;
 
     if (!currentRoomWorldId) {
-      logger.warn('[sendMessageAction] Validate: message.worldId is missing, cannot determine components for source check.');
+      logger.warn(
+        '[sendMessageAction] Validate: message.worldId is missing, cannot determine components for source check.'
+      );
       return false;
     }
 

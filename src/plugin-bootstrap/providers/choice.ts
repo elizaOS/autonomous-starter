@@ -71,11 +71,13 @@ export const choiceProvider: Provider = {
 
         const options = task.metadata.options as Array<string | OptionObject>; // Type assertion
 
-        if (options.every(opt => typeof opt === 'string')) {
+        if (options.every((opt) => typeof opt === 'string')) {
           (options as string[]).forEach((optionName) => {
             output += `   - \`${optionName}\`\n`; // Just list string option
           });
-        } else if (options.every(opt => typeof opt === 'object' && opt !== null && 'name' in opt)){
+        } else if (
+          options.every((opt) => typeof opt === 'object' && opt !== null && 'name' in opt)
+        ) {
           (options as OptionObject[]).forEach((optionObj) => {
             output += `   - \`${optionObj.name}\` ${optionObj.description ? `- ${optionObj.description}` : ''}\n`;
           });

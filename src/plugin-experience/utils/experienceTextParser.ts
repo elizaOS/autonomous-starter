@@ -19,4 +19,4 @@ export function detectDomain(text: string, defaultDomain: string = 'general'): s
   return defaultDomain;
 }
 
-// Add other general text parsing utilities for experiences if identified and consolidated. 
+// Add other general text parsing utilities for experiences if identified and consolidated.

@@ -10,7 +10,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import { openaiPlugin } from '@elizaos/plugin-openai';
-import { knowledgePlugin } from '@elizaos/plugin-knowledge';
+// import { knowledgePlugin } from '@elizaos/plugin-knowledge';
 import { autoPlugin } from './plugin-auto';
 import { bootstrapPlugin } from './plugin-bootstrap';
 import { groqPlugin } from './plugin-groq';
@@ -187,7 +187,7 @@ export const projectAgent: ProjectAgent = {
     shellPlugin,
     pluginManagerPlugin,
     robotPlugin,
-    knowledgePlugin,
+    // knowledgePlugin,
     experiencePlugin,
     envPlugin,
   ],

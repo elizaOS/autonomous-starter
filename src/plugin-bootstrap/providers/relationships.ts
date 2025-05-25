@@ -46,7 +46,7 @@ async function formatRelationships(runtime: IAgentRuntime, relationships: Relati
           valueStr = String(value);
         }
         // Sanitize newlines in valueStr to prevent breaking the overall format
-        valueStr = valueStr.replace(/\n/g, '\\n'); 
+        valueStr = valueStr.replace(/\n/g, '\\n');
         return `${key}: ${valueStr}`;
       })
       .join('\n');

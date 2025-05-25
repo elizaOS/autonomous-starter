@@ -1,6 +1,6 @@
 # Repository Guide
 
-This project is a TypeScript implementation of an autonomous agent built on the ElizaOS framework.  Plugins live under `src/plugin-*` and each exposes actions, providers and services using the core types from `@elizaos/core`.
+This project is a TypeScript implementation of an autonomous agent built on the ElizaOS framework. Plugins live under `src/plugin-*` and each exposes actions, providers and services using the core types from `@elizaos/core`.
 
 When adding functionality:
 

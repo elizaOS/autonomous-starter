@@ -133,7 +133,9 @@ export const updateEntityAction: Action = {
     const agentId = runtime.agentId;
 
     if (!currentRoomWorldId) {
-      logger.warn('[updateEntityAction] Validate: message.worldId is missing, cannot determine components.');
+      logger.warn(
+        '[updateEntityAction] Validate: message.worldId is missing, cannot determine components.'
+      );
       return false;
     }
 
@@ -142,8 +144,8 @@ export const updateEntityAction: Action = {
     const worldComponents = await runtime.getComponents(undefined, currentRoomWorldId, agentId);
 
     // Get source types from world components
-    const availableSources = new Set(worldComponents.map(c => c.type.toLowerCase()));
-    
+    const availableSources = new Set(worldComponents.map((c) => c.type.toLowerCase()));
+
     // TODO: Consider also checking runtime.getRegisteredSources() if that becomes available,
     // to allow updating even if no component of that type yet exists in the world.
     // For now, it's valid if there are any component types already present in the world context.
