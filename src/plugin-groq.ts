@@ -5,7 +5,6 @@ import {
   type GenerateTextParams,
   ModelType,
   type TokenizeTextParams,
-  getProviderBaseURL,
   logger,
 } from '@elizaos/core';
 import { generateObject, generateText } from 'ai';
@@ -17,8 +16,7 @@ import { type TiktokenModel, encodingForModel } from 'js-tiktoken';
  * @returns The resolved Groq API base URL.
  */
 function getBaseURL(runtime: any): string {
-  const defaultBaseURL = runtime.getSetting('GROQ_BASE_URL') || 'https://api.groq.com/openai/v1';
-  return getProviderBaseURL(runtime, 'groq', defaultBaseURL);
+  return runtime.getSetting('GROQ_BASE_URL') || 'https://api.groq.com/openai/v1';
 }
 
 /**

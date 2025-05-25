@@ -5,6 +5,7 @@ import {
   type State,
   logger,
   type HandlerCallback,
+  type ProviderResult,
 } from '@elizaos/core';
 import { ExperienceService } from '../service';
 import { ExperienceType, OutcomeType } from '../types';
@@ -76,12 +77,24 @@ export const experienceEvaluator: Evaluator = {
       return;
     }
 
+    let experienceRecordedInThisHandler = false; // Flag to track if any experience was recorded
+
     try {
       const messageText = message.content.text?.toLowerCase() || '';
       const previousMessages = state?.recentMessagesData || [];
+      const currentDomain = detectDomain(messageText);
 
       // Detect different types of experiences
       let experienceDetected = false;
+
+      // Get relevant experiences using the RAG provider
+      const ragProvider = runtime.providers.find(p => p.name === 'experienceRAG');
+      const ragResult = ragProvider ? await ragProvider.get(runtime, message, {
+        ...state,
+        query: messageText,
+      }) : { data: { experiences: [] } };
+
+      const previousExperiences = ragResult.data?.experiences || [];
 
       // 1. Detect failures and corrections
       if (
@@ -97,6 +110,11 @@ export const experienceEvaluator: Evaluator = {
           messageText.includes('now works');
 
         if (hasCorrection) {
+          // Look for contradictions in previous experiences
+          const contradictions = previousExperiences.filter(
+            (exp) => exp.outcome === OutcomeType.NEGATIVE && exp.action === extractAction(messageText)
+          );
+
           await experienceService.recordExperience({
             type: ExperienceType.CORRECTION,
             outcome: OutcomeType.POSITIVE,
@@ -104,12 +122,15 @@ export const experienceEvaluator: Evaluator = {
             action: extractAction(messageText),
             result: 'Successfully corrected the issue',
             learning: extractLearning(messageText, 'correction'),
-            domain: detectDomain(messageText),
+            domain: currentDomain,
             tags: ['correction', 'problem-solving'],
             confidence: 0.8,
             importance: 0.7,
+            relatedExperiences: contradictions.map(e => e.id),
+            previousBelief: contradictions[0]?.learning,
           });
           experienceDetected = true;
+          experienceRecordedInThisHandler = true;
         } else {
           await experienceService.recordExperience({
             type: ExperienceType.FAILURE,
@@ -118,12 +139,13 @@ export const experienceEvaluator: Evaluator = {
             action: extractAction(messageText),
             result: extractError(messageText),
             learning: `Need to investigate: ${extractError(messageText)}`,
-            domain: detectDomain(messageText),
+            domain: currentDomain,
             tags: ['failure', 'error'],
             confidence: 0.9,
             importance: 0.6,
           });
           experienceDetected = true;
+          experienceRecordedInThisHandler = true;
         }
       }
 
@@ -141,34 +163,42 @@ export const experienceEvaluator: Evaluator = {
           action: 'exploration',
           result: extractDiscovery(messageText),
           learning: extractLearning(messageText, 'discovery'),
-          domain: detectDomain(messageText),
+          domain: currentDomain,
           tags: ['discovery', 'exploration'],
           confidence: 0.7,
           importance: 0.8,
         });
         experienceDetected = true;
+        experienceRecordedInThisHandler = true;
       }
 
-      // 3. Detect successful completions
+      // 3. Detect successful completions and validate expectations
       if (
         messageText.includes('successfully') ||
         messageText.includes('completed') ||
         messageText.includes('finished') ||
         messageText.includes('achieved')
       ) {
+        const action = extractAction(messageText);
+        const expectation = state?.expectation as string;
+        const isExpected = expectation ?
+          messageText.toLowerCase().includes(expectation.toLowerCase()) ||
+          expectation.includes('should succeed') : true;
+
         await experienceService.recordExperience({
-          type: ExperienceType.SUCCESS,
+          type: isExpected ? ExperienceType.SUCCESS : ExperienceType.DISCOVERY,
           outcome: OutcomeType.POSITIVE,
           context: extractContext(previousMessages),
-          action: extractAction(messageText),
+          action,
           result: 'Task completed successfully',
-          learning: extractLearning(messageText, 'success'),
-          domain: detectDomain(messageText),
-          tags: ['success', 'completion'],
-          confidence: 0.9,
-          importance: 0.5,
+          learning: extractLearning(messageText, isExpected ? 'success' : 'discovery'),
+          domain: currentDomain,
+          tags: isExpected ? ['success', 'completion'] : ['discovery', 'unexpected'],
+          confidence: isExpected ? 0.9 : 0.7,
+          importance: isExpected ? 0.5 : 0.8,
         });
         experienceDetected = true;
+        experienceRecordedInThisHandler = true;
       }
 
       // 4. Detect hypotheses or plans
@@ -185,35 +215,112 @@ export const experienceEvaluator: Evaluator = {
           action: 'forming hypothesis',
           result: 'Hypothesis formed',
           learning: extractHypothesis(messageText),
-          domain: detectDomain(messageText),
+          domain: currentDomain,
           tags: ['hypothesis', 'theory'],
           confidence: 0.5,
           importance: 0.6,
         });
         experienceDetected = true;
+        experienceRecordedInThisHandler = true;
       }
 
-      // 5. Check for pattern recognition across recent experiences
-      if (!experienceDetected && previousMessages.length > 5) {
-        const analysis = await experienceService.analyzeExperiences(detectDomain(messageText));
+      // 5. Check for pattern recognition and analyze domain
+      logger.debug(`[experienceEvaluator] Checking pattern detection: experienceDetected=${experienceDetected}, previousMessages.length=${previousMessages.length}`);
+      if (!experienceDetected && previousMessages.length > 2) { // Lowered threshold for testing
+        logger.debug('[experienceEvaluator] Conditions met for pattern detection call.');
+        const recentProvider = runtime.providers.find(p => p.name === 'recentExperiences');
+        const recentResult = recentProvider ? await recentProvider.get(runtime, message, {
+          ...state,
+          includePatterns: true, // Ensure this is passed
+        }) : { data: { patterns: [], stats: null } };
 
-        if (analysis.frequency > 3 && analysis.reliability > 0.7) {
+        const patterns = recentResult.data?.patterns || [];
+        const stats = recentResult.data?.stats;
+
+        if (patterns.length > 0 && stats?.averageConfidence > 0.7) {
           await experienceService.recordExperience({
             type: ExperienceType.VALIDATION,
             outcome: OutcomeType.POSITIVE,
             context: 'Pattern detected across multiple experiences',
             action: 'pattern recognition',
-            result: analysis.pattern || 'Pattern confirmed',
-            learning: `Validated pattern: ${analysis.pattern}`,
-            domain: detectDomain(messageText),
+            result: patterns[0].description || 'Pattern confirmed',
+            learning: `Validated pattern: ${patterns[0].description}`,
+            domain: currentDomain,
             tags: ['pattern', 'validation'],
-            confidence: analysis.reliability,
+            confidence: stats.averageConfidence,
             importance: 0.9,
           });
+          experienceDetected = true; // Set flag even if it was the only one
+          experienceRecordedInThisHandler = true;
         }
       }
+
+      // 6. Analyze domain trends
+      if (experienceDetected) { // This should be based on whether any experience was recorded above
+        const domainProviderResult = ragProvider ? await ragProvider.get(runtime, message, {
+          ...state,
+          query: `domain:${currentDomain}`, // Query for domain specific learnings
+        }) : { data: { keyLearnings: [] } };
+
+        const keyLearnings = domainProviderResult.data?.keyLearnings || [];
+        if (keyLearnings.length > 0) {
+          await experienceService.recordExperience({
+            type: ExperienceType.LEARNING,
+            outcome: OutcomeType.NEUTRAL,
+            context: `Domain analysis: ${currentDomain}`,
+            action: 'analyze_domain',
+            result: 'Domain patterns analyzed',
+            learning: keyLearnings[0],
+            domain: currentDomain,
+            tags: ['analysis', 'domain-learning'],
+            confidence: 0.7,
+            importance: 0.6,
+          });
+          experienceRecordedInThisHandler = true;
+        }
+      }
+
+      // If no specific experience was detected and recorded by other checks,
+      // consider recording a general learning experience if the message is from the agent.
+      // This is a fallback to ensure agent's utterances can be captured if not fitting other patterns.
+      if (!experienceRecordedInThisHandler && message.entityId === runtime.agentId && messageText.length > 10) {
+        logger.debug('[experienceEvaluator] Recording general learning experience as fallback.');
+        await experienceService.recordExperience({
+          type: ExperienceType.LEARNING,
+          outcome: OutcomeType.NEUTRAL,
+          context: extractContext(previousMessages),
+          action: 'general_observation',
+          result: messageText,
+          learning: `General observation: ${messageText}`,
+          domain: currentDomain,
+          tags: ['observation', 'general'],
+          confidence: 0.5,
+          importance: 0.3,
+        });
+        experienceRecordedInThisHandler = true; // although not strictly necessary here as it's the last check
+      }
+
     } catch (error) {
       logger.error('[experienceEvaluator] Error evaluating experience:', error);
+      // Fallback: Record a general learning experience about the error
+      if (experienceService && !experienceRecordedInThisHandler) {
+        try {
+          await experienceService.recordExperience({
+            type: ExperienceType.LEARNING,
+            outcome: OutcomeType.NEUTRAL, // Error itself is neutral from a learning perspective
+            context: 'Error during experience evaluation',
+            action: 'error_handling',
+            result: `Error: ${error.message}`,
+            learning: `An error occurred in experience evaluator: ${error.message}`,
+            domain: 'system',
+            tags: ['error', 'evaluator'],
+            confidence: 0.9, // High confidence that an error occurred
+            importance: 0.7, // Important to note evaluator errors
+          });
+        } catch (serviceError) {
+          logger.error('[experienceEvaluator] Error recording fallback error experience:', serviceError);
+        }
+      }
     }
   },
 };

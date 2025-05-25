@@ -14,6 +14,7 @@ export default class AutonomousService extends Service {
   }
 
   static async start(runtime: IAgentRuntime): Promise<Service> {
+    console.log('AutonomousService started');
     const autoService = new AutonomousService(runtime);
     return autoService;
   }

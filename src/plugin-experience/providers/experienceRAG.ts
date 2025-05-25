@@ -14,17 +14,23 @@ export const experienceRAGProvider: Provider = {
   name: 'experienceRAG',
   description: 'Searches past experiences for relevant learnings and insights',
 
-  async get(runtime: IAgentRuntime, message: Memory, state?: State): Promise<any> {
+  async get(runtime: IAgentRuntime, message: Memory, state?: State): Promise<ProviderResult> {
+    let searchQueryFromStateOrMessage = state?.query || message?.content?.text || '';
     try {
       const experienceService = runtime.getService('EXPERIENCE') as ExperienceService;
       if (!experienceService) {
         return {
-          experiences: [],
-          summary: 'Experience service not available',
+          data: {
+            experiences: [],
+            keyLearnings: [],
+            highRelevance: 0,
+            mediumRelevance: 0,
+          },
+          text: 'Experience service not available',
+          values: { query: searchQueryFromStateOrMessage }
         };
       }
 
-      // Extract search query from message or state
       let searchQuery = '';
       if (message?.content?.text) {
         searchQuery = message.content.text;
@@ -33,70 +39,76 @@ export const experienceRAGProvider: Provider = {
       } else if (state?.currentAction) {
         searchQuery = `experiences related to ${state.currentAction}`;
       }
+      searchQueryFromStateOrMessage = searchQuery; // Update with more specific query if found
+
+      let experiences: Experience[] = [];
+      let summaryText: string;
+      let keyLearningsResult: string[] = [];
+      let highRelevanceCount = 0;
+      let mediumRelevanceCount = 0;
 
       if (!searchQuery) {
-        // Return recent experiences if no specific query
         const recent = await experienceService.queryExperiences({ limit: 5 });
-        return {
-          experiences: recent,
-          summary: `Recent experiences:\n${formatExperienceList(recent)}`,
-          count: recent.length,
-        };
-      }
+        experiences = recent;
+        summaryText = `Recent experiences:\n${formatExperienceList(recent)}`;
+        keyLearningsResult = recent.map(e => e.learning).slice(0, 3); // Extract some learnings
+      } else {
+        const searchResults = await experienceService.findSimilarExperiences(searchQuery, 10);
+        experiences = searchResults;
 
-      // Search for similar experiences using semantic search
-      const experiences = await experienceService.findSimilarExperiences(searchQuery, 10);
+        if (searchResults.length === 0) {
+          summaryText = 'No relevant past experiences found.';
+        } else {
+          const highRelevance = searchResults.filter((e) => e.confidence >= 0.8 && e.importance >= 0.7);
+          const mediumRelevance = searchResults.filter(
+            (e) =>
+              (e.confidence >= 0.6 && e.confidence < 0.8) || (e.importance >= 0.5 && e.importance < 0.7)
+          );
+          highRelevanceCount = highRelevance.length;
+          mediumRelevanceCount = mediumRelevance.length;
 
-      if (experiences.length === 0) {
-        return {
-          experiences: [],
-          summary: 'No relevant past experiences found.',
-          query: searchQuery,
-        };
-      }
+          summaryText = `Found ${searchResults.length} relevant experiences:\n\n`;
+          if (highRelevance.length > 0) {
+            summaryText += `**Highly Relevant:**\n${formatExperienceList(highRelevance)}\n\n`;
+          }
+          if (mediumRelevance.length > 0) {
+            summaryText += `**Potentially Relevant:**\n${formatExperienceList(mediumRelevance)}\n\n`;
+          }
 
-      // Group by relevance (confidence and importance)
-      const highRelevance = experiences.filter((e) => e.confidence >= 0.8 && e.importance >= 0.7);
-      const mediumRelevance = experiences.filter(
-        (e) =>
-          (e.confidence >= 0.6 && e.confidence < 0.8) || (e.importance >= 0.5 && e.importance < 0.7)
-      );
+          keyLearningsResult = searchResults
+            .filter((e) => e.confidence > 0.7)
+            .map((e) => e.learning)
+            .slice(0, 5);
 
-      let summary = `Found ${experiences.length} relevant experiences:\n\n`;
-
-      if (highRelevance.length > 0) {
-        summary += `**Highly Relevant:**\n${formatExperienceList(highRelevance)}\n\n`;
-      }
-
-      if (mediumRelevance.length > 0) {
-        summary += `**Potentially Relevant:**\n${formatExperienceList(mediumRelevance)}\n\n`;
-      }
-
-      // Extract key learnings
-      const keyLearnings = experiences
-        .filter((e) => e.confidence > 0.7)
-        .map((e) => e.learning)
-        .slice(0, 5);
-
-      if (keyLearnings.length > 0) {
-        summary += `**Key Learnings:**\n${keyLearnings.map((l, idx) => `${idx + 1}. ${l}`).join('\n')}`;
+          if (keyLearningsResult.length > 0) {
+            summaryText += `**Key Learnings:**\n${keyLearningsResult.map((l, idx) => `${idx + 1}. ${l}`).join('\n')}`;
+          }
+        }
       }
 
       return {
-        experiences,
-        summary,
-        query: searchQuery,
-        keyLearnings,
-        highRelevance: highRelevance.length,
-        mediumRelevance: mediumRelevance.length,
+        data: {
+          experiences,
+          keyLearnings: keyLearningsResult,
+          highRelevance: highRelevanceCount,
+          mediumRelevance: mediumRelevanceCount,
+        },
+        text: summaryText,
+        values: { query: searchQuery }
       };
     } catch (error) {
       logger.error('Error in experienceRAGProvider:', error);
-      return {
-        experiences: [],
-        summary: 'Error retrieving experiences',
-        error: error.message,
+      const result: ProviderResult = {
+        data: {
+          experiences: [],
+          keyLearnings: [],
+          highRelevance: 0,
+          mediumRelevance: 0,
+        },
+        text: 'Error retrieving experiences',
+        values: { query: searchQueryFromStateOrMessage },
       };
+      return result;
     }
   },
 };

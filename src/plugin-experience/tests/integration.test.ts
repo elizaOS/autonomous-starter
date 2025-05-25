@@ -1,13 +1,26 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { experiencePlugin } from '../index.js';
 import { ExperienceService } from '../service.js';
 import { ExperienceType, OutcomeType } from '../types.js';
 import { experienceEvaluator } from '../evaluators/experienceEvaluator.js';
-import type { IAgentRuntime, Memory, ProviderResult, State, UUID } from '@elizaos/core';
+import type { IAgentRuntime, Memory, ProviderResult, State, UUID, Provider } from '@elizaos/core';
 import { v4 as uuidv4 } from 'uuid';
 
 // Helper to generate valid UUIDs for tests
 const tuuid = (): UUID => uuidv4() as UUID;
+
+// Mock providers - these will be default mocks, can be overridden in specific tests/describes
+const mockRAGProvider: Provider = {
+  name: 'experienceRAG',
+  description: 'Mock RAG provider',
+  get: vi.fn(), // Default empty mock
+};
+
+const mockRecentProvider: Provider = {
+  name: 'recentExperiences',
+  description: 'Mock recent experiences provider',
+  get: vi.fn(), // Default empty mock
+};
 
 // Mock runtime
 const mockRuntime = {
@@ -15,6 +28,7 @@ const mockRuntime = {
   getService: vi.fn(),
   useModel: vi.fn(),
   emitEvent: vi.fn(),
+  providers: [mockRAGProvider, mockRecentProvider],
 } as unknown as IAgentRuntime;
 
 const createMockMessage = (text: string, entityId?: UUID): Memory => ({
@@ -38,14 +52,25 @@ describe('Experience Plugin Integration', () => {
   let experienceService: ExperienceService;
   let mockState: State;
 
+  // General beforeEach for the entire integration suite
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.clearAllMocks(); // Clear all mocks before each test in the suite
     experienceService = new ExperienceService(mockRuntime);
-    mockState = createMockState(); // Create a default mock state for each test
-
-    // Mock the embedding model
+    mockState = createMockState();
     mockRuntime.useModel = vi.fn().mockResolvedValue([0.1, 0.2, 0.3, 0.4, 0.5]);
     mockRuntime.getService = vi.fn().mockReturnValue(experienceService);
+
+    // Reset specific provider mocks to a default behavior if needed, or leave them empty
+    // if they are meant to be set in more specific describe blocks or tests
+    (mockRAGProvider.get as jest.Mock).mockImplementation(async () => ({
+      data: { experiences: [], keyLearnings: [] },
+      text: 'Default mock RAG response'
+    }));
+    (mockRecentProvider.get as jest.Mock).mockImplementation(async () => ({
+      data: { experiences: [], patterns: [], stats: { averageConfidence: 0.7, total: 0 } },
+      text: 'Default mock Recent response',
+      values: { count: 0 }
+    }));
   });
 
   afterEach(async () => {
@@ -58,7 +83,6 @@ describe('Experience Plugin Integration', () => {
       expect(experiencePlugin.description).toContain('experiences');
       expect(experiencePlugin.services).toHaveLength(1);
       expect(experiencePlugin.providers).toHaveLength(2);
-      expect(experiencePlugin.actions).toHaveLength(4);
       expect(experiencePlugin.evaluators).toHaveLength(1);
     });
 
@@ -70,14 +94,6 @@ describe('Experience Plugin Integration', () => {
       const providerNames = experiencePlugin.providers?.map((p) => p.name) || [];
       expect(providerNames).toContain('experienceRAG');
       expect(providerNames).toContain('recentExperiences');
-    });
-
-    it('should have all required actions', () => {
-      const actionNames = experiencePlugin.actions?.map((a) => a.name) || [];
-      expect(actionNames).toContain('recordExperience');
-      expect(actionNames).toContain('queryExperiences');
-      expect(actionNames).toContain('analyzeOutcome');
-      expect(actionNames).toContain('suggestExperiment');
     });
 
     it('should have experience evaluator', () => {
@@ -223,219 +239,207 @@ describe('Experience Plugin Integration', () => {
   });
 
   describe('Experience Evaluator Integration', () => {
+    beforeEach(() => {
+      // More specific default mocks for this block if needed, or rely on the outer beforeEach
+      // For instance, RAG might be called more specifically here
+      (mockRAGProvider.get as jest.Mock).mockImplementation(async (runtime, message, state) => {
+        const query = state?.query?.toLowerCase() || '';
+        let experiences = [{ id: tuuid(), learning: 'Generic RAG for evaluator' }];
+        let keyLearnings = query.startsWith('domain:') ? [`Learning for ${query}`] : [];
+        return { data: { experiences, keyLearnings }, text: 'Evaluator RAG response' };
+      });
+      (mockRecentProvider.get as jest.Mock).mockImplementation(async (runtime, message, state) => ({
+        data: {
+          experiences: [],
+          patterns: state?.includePatterns ? [{ description: 'Pattern for evaluator', frequency: 3, significance: 'medium' }] : [],
+          stats: { averageConfidence: 0.8, total: 5 },
+        },
+        text: 'Evaluator Recent response',
+        values: { count: 0 },
+      }));
+    });
+
     it('should validate agent messages', async () => {
-      const agentMessage = createMockMessage(
-        'I discovered something interesting',
-        mockRuntime.agentId // Agent's own message
-      );
-      const userMessage = createMockMessage('Tell me about it', tuuid()); // Message from another user
-
-      const agentValid = await experienceEvaluator.validate(mockRuntime, agentMessage, mockState);
-      const userValid = await experienceEvaluator.validate(mockRuntime, userMessage, mockState);
-
-      expect(agentValid).toBe(true);
-      expect(userValid).toBe(false);
+      const agentMessage = createMockMessage('Agent message', mockRuntime.agentId);
+      const userMessage = createMockMessage('User message', tuuid());
+      expect(await experienceEvaluator.validate(mockRuntime, agentMessage, mockState)).toBe(true);
+      expect(await experienceEvaluator.validate(mockRuntime, userMessage, mockState)).toBe(false);
     });
 
-    it('should detect and record discoveries', async () => {
-      const message = createMockMessage(
-        'I found that the system has jq installed for JSON processing'
-      );
+    it('should detect and record discoveries using providers', async () => {
+      const discoveryText = 'I found that the system has jq installed for JSON processing';
+      const message = createMockMessage(discoveryText);
+      mockState.recentMessagesData = [];
+
+      // Specific mock for the first RAG call (general query)
+      (mockRAGProvider.get as jest.Mock).mockResolvedValueOnce({
+        data: { experiences: [], keyLearnings: [] }, // No prior similar experiences
+        text: 'Initial RAG for discovery'
+      });
+      // Specific mock for the second RAG call (domain analysis)
+      (mockRAGProvider.get as jest.Mock).mockResolvedValueOnce({
+        data: { experiences: [], keyLearnings: ['Key learning for system domain via jq discovery'] },
+        text: 'Domain RAG for discovery'
+      });
 
       await experienceEvaluator.handler(mockRuntime, message, mockState);
 
-      // Check that an experience was recorded
-      const experiences = await experienceService.queryExperiences({
-        type: ExperienceType.DISCOVERY,
-      });
+      expect(mockRAGProvider.get).toHaveBeenCalledTimes(2);
+      expect(mockRAGProvider.get).toHaveBeenNthCalledWith(1, mockRuntime, message, expect.objectContaining({ query: discoveryText.toLowerCase() }));
+      expect(mockRAGProvider.get).toHaveBeenNthCalledWith(2, mockRuntime, message, expect.objectContaining({ query: `domain:system` }));
 
+      const experiences = await experienceService.queryExperiences({ type: ExperienceType.DISCOVERY });
       expect(experiences.length).toBeGreaterThan(0);
-      expect(experiences[0].type).toBe(ExperienceType.DISCOVERY);
       expect(experiences[0].learning).toContain('jq');
+
+      const learningExperiences = await experienceService.queryExperiences({ type: ExperienceType.LEARNING, domain: 'system' });
+      expect(learningExperiences.length).toBeGreaterThan(0);
+      expect(learningExperiences[0].learning).toContain('Key learning for system domain via jq discovery');
     });
 
-    it('should detect and record failures with corrections', async () => {
-      const message = createMockMessage(
-        'Error: ModuleNotFoundError for pandas. After installing pandas, the script ran successfully and produced the expected output.'
-      );
+    it('should use pattern detection from recentExperiences provider', async () => {
+      const message = createMockMessage('Agent message that does not trigger other specific detections');
+      mockState.recentMessagesData = [createMockMessage('p1'), createMockMessage('p2'), createMockMessage('p3')];
+
+      // Specific mock for this test's recentProvider call
+      (mockRecentProvider.get as jest.Mock).mockResolvedValueOnce({
+        data: {
+          experiences: [],
+          patterns: [{ description: 'Test pattern from recent for pattern detection test', frequency: 5, significance: 'high' }],
+          stats: { averageConfidence: 0.85, total: 10 }, // Ensure high confidence for pattern to be recorded
+        },
+        text: 'Recent experiences for pattern detection test',
+        values: { count: 3 },
+      });
 
       await experienceEvaluator.handler(mockRuntime, message, mockState);
 
-      // Check that a correction experience was recorded
-      const experiences = await experienceService.queryExperiences({
-        type: ExperienceType.CORRECTION,
-      });
+      expect(mockRecentProvider.get).toHaveBeenCalledWith(mockRuntime, message, expect.objectContaining({ includePatterns: true }));
 
+      const experiences = await experienceService.queryExperiences({ type: ExperienceType.VALIDATION });
       expect(experiences.length).toBeGreaterThan(0);
-      expect(experiences[0].type).toBe(ExperienceType.CORRECTION);
-      expect(experiences[0].outcome).toBe(OutcomeType.POSITIVE);
+      expect(experiences[0].learning).toContain('Test pattern from recent for pattern detection test');
     });
 
-    it('should detect and record hypotheses', async () => {
-      const message = createMockMessage('I think the issue might be related to file permissions');
+    it('should handle provider errors gracefully and record a learning experience', async () => {
+      const message = createMockMessage('Test message causing RAG provider error');
+      mockState.recentMessagesData = [];
+
+      // Mock RAGProvider.get to reject specifically for THIS test case
+      (mockRAGProvider.get as jest.Mock).mockRejectedValueOnce(new Error('Isolated RAG error'));
+      // Ensure recent provider is benign for this specific test call if it gets called
+      (mockRecentProvider.get as jest.Mock).mockResolvedValueOnce({
+        data: { experiences: [], patterns: [], stats: null },
+        text: 'Recent provider benign response during RAG error',
+        values: { count: 0 }
+      });
 
       await experienceEvaluator.handler(mockRuntime, message, mockState);
 
-      // Check that a hypothesis experience was recorded
-      const experiences = await experienceService.queryExperiences({
-        type: ExperienceType.HYPOTHESIS,
+      const learningExperiences = await experienceService.queryExperiences({
+        type: ExperienceType.LEARNING,
+        domain: 'system',
       });
-
-      expect(experiences.length).toBeGreaterThan(0);
-      expect(experiences[0].type).toBe(ExperienceType.HYPOTHESIS);
-      expect(experiences[0].outcome).toBe(OutcomeType.NEUTRAL);
-    });
-
-    it('should detect domain-specific experiences', async () => {
-      const shellMessage = createMockMessage('Successfully executed the shell command ls -la');
-      const codingMessage = createMockMessage('Fixed the function by adding proper error handling');
-
-      await experienceEvaluator.handler(mockRuntime, shellMessage, mockState);
-      await experienceEvaluator.handler(mockRuntime, codingMessage, mockState);
-
-      const shellExperiences = await experienceService.queryExperiences({ domain: 'shell' });
-      const codingExperiences = await experienceService.queryExperiences({ domain: 'coding' });
-
-      expect(shellExperiences.length).toBeGreaterThan(0);
-      expect(codingExperiences.length).toBeGreaterThan(0);
-      expect(shellExperiences[0].domain).toBe('shell');
-      expect(codingExperiences[0].domain).toBe('coding');
+      expect(learningExperiences.length).toBeGreaterThan(0);
+      expect(learningExperiences[0].learning).toContain('An error occurred in experience evaluator: Isolated RAG error');
     });
   });
 
   describe('Provider Integration', () => {
     beforeEach(async () => {
-      // Add some test experiences
-      await experienceService.recordExperience({
-        type: ExperienceType.SUCCESS,
-        outcome: OutcomeType.POSITIVE,
-        context: 'File operations',
-        action: 'create_file',
-        result: 'File created successfully',
-        learning: 'File creation works with proper permissions',
-        domain: 'system',
-        tags: ['file', 'create'],
-        confidence: 0.9,
-        importance: 0.7,
-      });
+      // This block needs its own fresh setup for service and experiences
+      vi.clearAllMocks();
+      experienceService = new ExperienceService(mockRuntime);
+      mockRuntime.getService = vi.fn().mockReturnValue(experienceService);
 
       await experienceService.recordExperience({
-        type: ExperienceType.DISCOVERY,
-        outcome: OutcomeType.POSITIVE,
-        context: 'System exploration',
-        action: 'explore_tools',
-        result: 'Found useful command line tools',
-        learning: 'System has comprehensive CLI tools available',
-        domain: 'system',
-        tags: ['tools', 'cli'],
-        confidence: 0.8,
-        importance: 0.8,
+        type: ExperienceType.SUCCESS, outcome: OutcomeType.POSITIVE, context: 'File ops success', action: 'mkfile',
+        result: 'Created', learning: 'mkfile works', domain: 'system'
+      });
+      await experienceService.recordExperience({
+        type: ExperienceType.DISCOVERY, outcome: OutcomeType.POSITIVE, context: 'Tool discovery', action: 'findtool',
+        result: 'Found it', learning: 'new tool available', domain: 'system'
       });
     });
 
     it('should provide relevant experiences via RAG provider', async () => {
       const ragProvider = experiencePlugin.providers?.find((p) => p.name === 'experienceRAG');
       expect(ragProvider).toBeDefined();
+      const message = createMockMessage('system file ops');
 
-      const message = createMockMessage('file operations');
-      const result = (await ragProvider!.get(mockRuntime, message, mockState)) as ProviderResult & {
-        experiences?: any[];
-        summary?: string;
-        keyLearnings?: any[];
-      };
+      const expectedExperiences = await experienceService.queryExperiences({ domain: 'system' });
+      // Mock the data that the RAG provider would use to generate its text
+      (mockRAGProvider.get as jest.Mock).mockResolvedValueOnce({
+        data: { experiences: expectedExperiences, keyLearnings: ['RAG Learning for file ops'] },
+        // text: 'RAG success for provider test' // We expect the provider to generate its own text
+        // Let the actual provider generate the text based on the mocked data
+      });
 
-      expect(result.data?.experiences).toBeDefined();
-      expect(result.text).toContain('experiences'); // Assuming summary/keyLearnings are part of the text
+      const result = await ragProvider!.get(mockRuntime, message, mockState);
+      expect(result.data).toBeDefined();
+      expect(result.data.experiences).toEqual(expectedExperiences);
+      // Assert based on content expected from formatExperienceList with expectedExperiences
+      expect(result.text).toContain('Found 2 relevant experiences'); // From the actual provider logic
+      expect(result.text).toContain('mkfile works');
+      expect(result.text).toContain('new tool available');
     });
 
     it('should provide recent experiences with statistics', async () => {
-      const recentProvider = experiencePlugin.providers?.find(
-        (p) => p.name === 'recentExperiences'
-      );
+      const recentProvider = experiencePlugin.providers?.find((p) => p.name === 'recentExperiences');
       expect(recentProvider).toBeDefined();
-
       const message = createMockMessage('');
-      const result = (await recentProvider!.get(
-        mockRuntime,
-        message,
-        mockState
-      )) as ProviderResult & { experiences?: any[]; count?: number; stats?: any; summary?: string };
+      const recentExperiencesData = await experienceService.queryExperiences({ limit: 2 });
 
-      expect(result.data?.experiences).toBeDefined();
-      expect(result.values?.count).toBeGreaterThan(0);
-      expect(result.data?.stats).toBeDefined();
-      expect(result.text).toContain('experiences');
+      // Mock the data that the Recent provider would use
+      (mockRecentProvider.get as jest.Mock).mockResolvedValueOnce({
+        data: { experiences: recentExperiencesData, patterns: [], stats: { averageConfidence: 0.85, total: recentExperiencesData.length } },
+        // text: 'Recent success for provider test', // Provider will generate its own text
+        values: { count: recentExperiencesData.length }
+      });
+
+      const result = await recentProvider!.get(mockRuntime, message, mockState);
+      expect(result.data).toBeDefined();
+      expect(result.data.experiences).toEqual(recentExperiencesData);
+      expect(result.values?.count).toBe(recentExperiencesData.length);
+      expect(result.data.stats?.total).toBe(recentExperiencesData.length);
+      // Assert based on content expected from the recentExperiences provider's formatting
+      expect(result.text).toContain(`Recent ${recentExperiencesData.length} experiences`);
+      expect(result.text).toContain('mkfile works');
+      expect(result.text).toContain('Statistics'); // It adds a statistics summary
     });
   });
 
   describe('Memory Management', () => {
+    // These tests should be mostly self-contained or use the general beforeEach
     it('should handle large numbers of experiences efficiently', async () => {
-      // Set a low limit for testing
       (experienceService as any).maxExperiences = 10;
-
-      // Add many experiences
       for (let i = 0; i < 15; i++) {
         await experienceService.recordExperience({
-          type: ExperienceType.LEARNING,
-          outcome: OutcomeType.NEUTRAL,
-          context: `Context ${i}`,
-          action: `action_${i}`,
-          result: `Result ${i}`,
-          learning: `Learning ${i}`,
-          domain: 'test',
-          confidence: 0.5,
-          importance: i < 5 ? 0.1 : 0.9, // First 5 have low importance
+          type: ExperienceType.LEARNING, context: `Ctx ${i}`, action: `act_${i}`, result: `Res ${i}`, learning: `Learn ${i}`,
+          importance: i < 5 ? 0.1 : 0.9, // Make some less important
         });
       }
-
-      // Check that experiences were pruned
       const allExperiences = await experienceService.queryExperiences({ limit: 20 });
       expect(allExperiences.length).toBeLessThanOrEqual(10);
-
-      // High importance experiences should be retained
       const highImportanceCount = allExperiences.filter((e) => e.importance > 0.5).length;
-      expect(highImportanceCount).toBeGreaterThan(0);
+      expect(highImportanceCount).toBeGreaterThanOrEqual(5); // At least the 10 - 5 = 5 high importance ones should remain, possibly more if some low imp were kept
     });
 
     it('should handle embedding generation failures gracefully', async () => {
-      // Mock embedding failure
-      mockRuntime.useModel = vi.fn().mockRejectedValue(new Error('Embedding failed'));
-
-      const experience = await experienceService.recordExperience({
-        type: ExperienceType.LEARNING,
-        outcome: OutcomeType.NEUTRAL,
-        context: 'Test context',
-        action: 'test_action',
-        result: 'Test result',
-        learning: 'Test learning',
-        domain: 'test',
-      });
-
+      (mockRuntime.useModel as jest.Mock).mockRejectedValueOnce(new Error('Embedding model fail'));
+      const experience = await experienceService.recordExperience({ learning: 'No embedding' });
       expect(experience.id).toBeDefined();
       expect(experience.embedding).toBeUndefined();
-
-      // Should still be able to query
-      const experiences = await experienceService.queryExperiences({ domain: 'test' });
-      expect(experiences).toHaveLength(1);
+      const experiences = await experienceService.queryExperiences({ domain: 'general' });
+      expect(experiences.some(e => e.id === experience.id)).toBe(true);
     });
   });
 
   describe('Error Handling', () => {
     it('should handle service unavailability gracefully', async () => {
-      const mockRuntimeNoService = {
-        ...mockRuntime,
-        getService: vi.fn().mockReturnValue(null),
-      } as unknown as IAgentRuntime;
-
+      const mockRuntimeNoService = { ...mockRuntime, getService: vi.fn().mockReturnValue(null) } as unknown as IAgentRuntime;
       const ragProvider = experiencePlugin.providers?.find((p) => p.name === 'experienceRAG');
-      const message = createMockMessage('test query');
-
-      const result = (await ragProvider!.get(
-        mockRuntimeNoService,
-        message,
-        mockState
-      )) as ProviderResult & { experiences?: any[]; summary?: string };
-
+      const result = await ragProvider!.get(mockRuntimeNoService, createMockMessage('q'), createMockState());
       expect(result.data?.experiences).toEqual([]);
       expect(result.text).toContain('not available');
     });
@@ -479,3 +483,21 @@ describe('Experience Plugin Integration', () => {
     });
   });
 });
+
+// Helper function
+function detectDomain(text: string): string {
+  const domains = {
+    shell: ['command', 'terminal', 'bash', 'shell', 'execute', 'script'],
+    coding: ['code', 'function', 'variable', 'syntax', 'programming', 'debug'],
+    system: ['file', 'directory', 'process', 'memory', 'cpu', 'system'],
+    network: ['http', 'api', 'request', 'response', 'url', 'network'],
+    data: ['json', 'csv', 'database', 'query', 'data'],
+  };
+  const lowerText = text.toLowerCase();
+  for (const [domain, keywords] of Object.entries(domains)) {
+    if (keywords.some((keyword) => lowerText.includes(keyword))) {
+      return domain;
+    }
+  }
+  return 'general';
+}

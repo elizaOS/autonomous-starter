@@ -137,7 +137,20 @@ async function extractEnvVarValues(
       stopSequences: [],
     });
 
-    const parsed = parseJSONObjectFromText(result);
+    // Custom parsing for arrays since parseJSONObjectFromText only handles objects
+    let parsed: any;
+    const jsonBlockMatch = result.match(/```json\n([\s\S]*?)\n```/);
+
+    try {
+      if (jsonBlockMatch) {
+        parsed = JSON.parse(jsonBlockMatch[1].trim());
+      } else {
+        parsed = JSON.parse(result.trim());
+      }
+    } catch (parseError) {
+      logger.error('Error parsing JSON from model response:', parseError);
+      return [];
+    }
 
     if (!Array.isArray(parsed)) {
       return [];
