@@ -14,6 +14,7 @@ import { bootstrapPlugin } from './plugin-bootstrap';
 import { groqPlugin } from './plugin-groq';
 import { openaiPlugin } from '@elizaos/plugin-openai';
 import { shellPlugin } from './plugin-shell';
+import { pluginManagerPlugin } from './plugin-manager';
 
 /**
  * Represents the default character (Autoliza) with her specific attributes and behaviors.
@@ -174,7 +175,14 @@ const initCharacter = ({ runtime }: { runtime: IAgentRuntime }) => {
 export const projectAgent: ProjectAgent = {
   character,
   init: async (runtime: IAgentRuntime) => await initCharacter({ runtime }),
-  plugins: [autoPlugin, bootstrapPlugin, groqPlugin, openaiPlugin, shellPlugin],
+  plugins: [
+    autoPlugin,
+    bootstrapPlugin,
+    groqPlugin,
+    openaiPlugin,
+    shellPlugin,
+    pluginManagerPlugin,
+  ],
 };
 const project: Project = {
   agents: [projectAgent],
