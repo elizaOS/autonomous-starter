@@ -1,5 +1,17 @@
 import type { Plugin, IAgentRuntime, UUID } from '@elizaos/core';
 
+// Extend the core service types with plugin manager service
+declare module '@elizaos/core' {
+  interface ServiceTypeRegistry {
+    PLUGIN_MANAGER: 'PLUGIN_MANAGER';
+  }
+}
+
+// Export service type constant
+export const PluginManagerServiceType = {
+  PLUGIN_MANAGER: 'PLUGIN_MANAGER' as const,
+} satisfies Partial<import('@elizaos/core').ServiceTypeRegistry>;
+
 export enum PluginStatus {
   BUILDING = 'building',
   READY = 'ready',

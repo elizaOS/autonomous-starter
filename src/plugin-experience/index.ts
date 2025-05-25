@@ -5,6 +5,7 @@ import { recentExperiencesProvider } from './providers/recentExperiences';
 import { experienceEvaluator } from './evaluators/experienceEvaluator';
 import { IAgentRuntime } from '@elizaos/core';
 import { logger } from '@elizaos/core';
+import './types'; // Ensure module augmentation is loaded
 
 export const experiencePlugin: Plugin = {
   name: 'experience',

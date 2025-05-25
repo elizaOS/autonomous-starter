@@ -7,6 +7,7 @@ import {
   ModelType,
   logger,
 } from '@elizaos/core';
+import { RobotServiceType } from './types';
 
 export interface ScreenObject {
   label: string;
@@ -22,7 +23,7 @@ export interface ScreenContext {
 }
 
 export class RobotService extends Service {
-  static serviceType: ServiceTypeName = 'ROBOT' as ServiceTypeName;
+  static serviceType: ServiceTypeName = RobotServiceType.ROBOT;
   capabilityDescription = 'Controls the screen and provides recent screen context.';
 
   private context: ScreenContext | null = null;

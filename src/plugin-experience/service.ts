@@ -15,6 +15,7 @@ import {
   ExperienceType,
   OutcomeType,
   type ExperienceEvent,
+  ExperienceServiceType,
 } from './types';
 import { v4 as uuidv4 } from 'uuid';
 import { analyzeExperience, detectPatterns } from './utils/experienceAnalyzer';
@@ -22,7 +23,7 @@ import { ConfidenceDecayManager } from './utils/confidenceDecay';
 import { ExperienceRelationshipManager } from './utils/experienceRelationships';
 
 export class ExperienceService extends Service {
-  static override serviceType: ServiceTypeName = 'EXPERIENCE' as ServiceTypeName;
+  static override serviceType: ServiceTypeName = ExperienceServiceType.EXPERIENCE;
   override capabilityDescription =
     'Manages agent experiences, learning from successes and failures to improve future decisions';
 

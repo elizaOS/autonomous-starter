@@ -3,6 +3,7 @@ import { PluginManagerService } from './services/pluginManagerService';
 import { pluginStateProvider } from './providers/pluginStateProvider';
 import { loadPluginAction } from './actions/loadPlugin';
 import { unloadPluginAction } from './actions/unloadPlugin';
+import './types'; // Ensure module augmentation is loaded
 
 export const pluginManagerPlugin: Plugin = {
   name: 'plugin-manager',

@@ -1,5 +1,17 @@
 import type { UUID, Memory } from '@elizaos/core';
 
+// Extend the core service types with experience service
+declare module '@elizaos/core' {
+  interface ServiceTypeRegistry {
+    EXPERIENCE: 'EXPERIENCE';
+  }
+}
+
+// Export service type constant
+export const ExperienceServiceType = {
+  EXPERIENCE: 'EXPERIENCE' as const,
+} satisfies Partial<import('@elizaos/core').ServiceTypeRegistry>;
+
 export enum ExperienceType {
   SUCCESS = 'success', // Agent accomplished something
   FAILURE = 'failure', // Agent failed at something

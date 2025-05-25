@@ -1,6 +1,7 @@
 import { Plugin } from '@elizaos/core';
 import { events } from './events';
 import AutonomousService from './service';
+import './types'; // Ensure module augmentation is loaded
 import { autonomousFeedProvider } from './messageFeed';
 import { reflectAction } from './reflect';
 

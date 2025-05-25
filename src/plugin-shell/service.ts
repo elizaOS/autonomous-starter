@@ -8,6 +8,7 @@ import {
   type ServiceTypeName,
   logger,
 } from '@elizaos/core';
+import { ShellServiceType } from './types';
 
 interface ShellHistoryEntry {
   command: string;
@@ -102,7 +103,7 @@ function parseFileOperation(
 }
 
 export class ShellService extends Service {
-  static override serviceType: ServiceTypeName = 'SHELL' as ServiceTypeName; // Custom service type
+  static override serviceType: ServiceTypeName = ShellServiceType.SHELL;
   override capabilityDescription = 'Provides shell access to execute commands on the host system.';
 
   private history: ShellHistoryEntry[] = [];
@@ -134,7 +135,7 @@ export class ShellService extends Service {
     const options: ExecSyncOptions = {
       cwd: this.currentWorkingDirectory,
       encoding: 'utf-8',
-      shell: process.env.SHELL || true, // Use user's shell or system default
+      shell: process.env.SHELL || '/bin/bash', // Use user's shell or default bash
     };
 
     try {
@@ -155,7 +156,7 @@ export class ShellService extends Service {
           logger.error(`[ShellService] Error changing directory: ${errorOutput}`);
         }
       } else {
-        output = execSync(command, options);
+        output = execSync(command, options) as string;
       }
     } catch (e: any) {
       errorOutput = e.stderr || e.message || 'Command execution failed';

@@ -14,11 +14,12 @@ import {
   type UnloadPluginParams,
   type PluginManagerConfig,
   EventType,
+  PluginManagerServiceType,
 } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
 export class PluginManagerService extends Service implements PluginRegistry {
-  static override serviceType: ServiceTypeName = 'PLUGIN_MANAGER' as ServiceTypeName;
+  static override serviceType: ServiceTypeName = PluginManagerServiceType.PLUGIN_MANAGER;
   override capabilityDescription = 'Manages dynamic loading and unloading of plugins at runtime';
 
   public plugins: Map<string, PluginState> = new Map();

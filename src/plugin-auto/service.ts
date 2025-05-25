@@ -1,12 +1,12 @@
-import { createUniqueUuid, Entity, IAgentRuntime, Memory, Service } from '@elizaos/core';
-import { EventType } from './types';
+import { createUniqueUuid, Service, type Entity, type IAgentRuntime, type Memory, type ServiceTypeName } from '@elizaos/core';
+import { EventType, AutonomousServiceType } from './types';
 
 const AUTO_WORLD_SEED = 'autonomous_world_singleton';
 const AUTO_ROOM_SEED = 'autonomous_room_singleton';
 const COPILOT_ENTITY_SEED = 'autonomous_copilot_singleton';
 
 export default class AutonomousService extends Service {
-  static serviceType = 'autonomous';
+  static serviceType: ServiceTypeName = AutonomousServiceType.AUTONOMOUS;
   capabilityDescription = 'Autonomous agent service, maintains the autonomous agent loop';
   async stop(): Promise<void> {
     console.log('AutonomousService stopped');
