@@ -27,15 +27,11 @@ export const experiencePlugin: Plugin = {
     logger.info(`[ExperiencePlugin] Configuration read:
     - Max experiences: ${maxExperiences}
     - Auto-record threshold: ${autoRecordThreshold}`);
-
-    // Initialize the experience service
-    const experienceService = runtime.getService('EXPERIENCE') as ExperienceService;
-    if (!experienceService) {
-      logger.warn('[ExperiencePlugin] Experience service not available during initialization');
-    }
   },
 };
 
 // Export individual components for testing
 export { ExperienceService } from './service';
 export * from './types';
+
+export default experiencePlugin;

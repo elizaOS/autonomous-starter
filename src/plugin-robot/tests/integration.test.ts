@@ -95,7 +95,7 @@ describe('Robot Plugin Integration', () => {
                 bbox: { x: 50, y: 100, width: 200, height: 25 },
               },
             ]);
-          case ModelType.TRANSCRIPTION:
+          case ModelType.IMAGE_DESCRIPTION:
             return Promise.resolve('Sample text from OCR');
           default:
             return Promise.resolve('');

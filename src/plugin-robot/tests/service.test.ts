@@ -1,86 +1,97 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { RobotService } from '../service';
+import { ModelType } from '@elizaos/core';
+import type { IAgentRuntime, Service, ScreenContext as CoreScreenContext } from '@elizaos/core';
 
-// Mock robotjs before any imports
-vi.mock('@jitsi/robotjs', () => ({
-  default: {
-    getScreenSize: vi.fn(() => ({ width: 1920, height: 1080 })),
-    screen: {
-      capture: vi.fn(() => ({
-        image: Buffer.from('mock-screenshot-data'),
-        width: 1920,
-        height: 1080,
-        byteWidth: 7680,
-        bitsPerPixel: 32,
-        bytesPerPixel: 4,
-      })),
-    },
-    moveMouse: vi.fn(),
-    mouseClick: vi.fn(),
-    typeString: vi.fn(),
-  },
+// Mock @jitsi/robotjs
+vi.mock('@jitsi/robotjs', () => {
+  const mockWidth = 1920;
+  const mockHeight = 1080;
+  const mockChannels = 4; // BGRA
+  const mockImageBuffer = Buffer.alloc(mockWidth * mockHeight * mockChannels);
+  return {
+    default: {
+      getScreenSize: vi.fn(() => ({ width: mockWidth, height: mockHeight })),
+      screen: {
+        capture: vi.fn(() => ({
+          image: mockImageBuffer,
+          width: mockWidth,
+          height: mockHeight,
+          byteWidth: mockWidth * mockChannels,
+          bitsPerPixel: mockChannels * 8,
+          bytesPerPixel: mockChannels,
+          colorAt: vi.fn(() => '000000')
+        }))
+      },
+      moveMouse: vi.fn(),
+      mouseClick: vi.fn(),
+      typeString: vi.fn(),
+    }
+  };
+});
+
+// Mock Tesseract.js
+vi.mock('tesseract.js', () => ({
+  createWorker: vi.fn().mockResolvedValue({
+    recognize: vi.fn().mockResolvedValue({ data: { text: 'Sample text from OCR' } }),
+    terminate: vi.fn().mockResolvedValue(undefined),
+  }),
 }));
 
-import { RobotService, type ScreenContext, type ScreenObject } from '../service.js';
-import type { IAgentRuntime } from '@elizaos/core';
-import { ModelType } from '@elizaos/core';
-// @ts-ignore - mocked module
-import robot from '@jitsi/robotjs';
-
-// Get the mocked functions
-const mockRobot = robot as any;
-
-// Mock the runtime
-const mockRuntime = {
-  agentId: 'test-agent-123' as const,
-  getService: vi.fn(),
-  useModel: vi.fn(),
-  emitEvent: vi.fn(),
-} as unknown as IAgentRuntime;
+// Define a more complete mock context type matching RobotService's ScreenContext
+interface TestScreenContext extends CoreScreenContext {
+  currentDescription: string;
+  descriptionHistory: any[];
+  ocr: string;
+  objects: any[];
+  changeDetected: boolean;
+  pixelDifferencePercentage?: number;
+}
 
 describe('RobotService', () => {
   let robotService: RobotService;
+  let mockRuntime: IAgentRuntime;
+  let mockRobot: any; // To access the vi.mocked robotjs
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-    robotService = new RobotService(mockRuntime);
+  beforeEach(async () => {
+    const robotJs = await import('@jitsi/robotjs');
+    mockRobot = robotJs.default;
 
-    // Setup default mock responses
-    mockRuntime.useModel = vi
-      .fn()
-      .mockImplementation((modelType: (typeof ModelType)[keyof typeof ModelType], input: any) => {
-        switch (modelType) {
-          case ModelType.TEXT_SMALL:
-            return Promise.resolve(
-              'A screenshot showing a desktop with various windows and applications'
-            );
-          case ModelType.OBJECT_SMALL:
-            return Promise.resolve([
-              {
-                label: 'button',
-                bbox: { x: 100, y: 200, width: 80, height: 30 },
-              },
-              {
-                label: 'text_field',
-                bbox: { x: 50, y: 100, width: 200, height: 25 },
-              },
-            ] as ScreenObject[]);
-          case ModelType.TRANSCRIPTION:
-            return Promise.resolve('Sample text from OCR');
-          default:
-            return Promise.resolve('');
+    mockRuntime = {
+      useModel: vi.fn().mockImplementation((type: ModelType, params: any) => {
+        if (type === ModelType.IMAGE_DESCRIPTION) {
+          return Promise.resolve('A screenshot showing a desktop with various windows and applications');
+        } else if (type === ModelType.OBJECT_SMALL) {
+          return Promise.resolve([{ label: 'button', bbox: { x:100, y:200, width:50, height:30 } }]);
         }
-      });
+        return Promise.resolve('');
+      }),
+      getService: vi.fn(),
+      getAllServices: vi.fn(() => new Map()),
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }
+    } as unknown as IAgentRuntime;
+
+    robotService = await RobotService.start(mockRuntime) as RobotService;
+    // Ensure Tesseract worker is mocked for the instance
+    const { createWorker } = await import('tesseract.js');
+    const mockTesseractWorker = {
+        recognize: vi.fn().mockResolvedValue({ data: { text: 'Sample text from OCR' } }),
+        terminate: vi.fn().mockResolvedValue(undefined),
+    };
+    vi.mocked(createWorker).mockResolvedValue(mockTesseractWorker);
+    (robotService as any).tesseractWorker = mockTesseractWorker; 
   });
 
   afterEach(async () => {
     await robotService.stop();
+    vi.clearAllMocks();
   });
 
   describe('constructor', () => {
     it('should initialize with runtime', () => {
       expect(robotService).toBeDefined();
       expect(robotService.capabilityDescription).toBe(
-        'Controls the screen and provides recent screen context.'
+        'Controls the screen and provides recent screen context with intelligent change detection and local OCR.'
       );
     });
 
@@ -120,8 +131,11 @@ describe('RobotService', () => {
 
       expect(context.ocr).toBe('Sample text from OCR');
       expect(mockRuntime.useModel).toHaveBeenCalledWith(
-        ModelType.TRANSCRIPTION,
-        expect.any(Buffer)
+        ModelType.IMAGE_DESCRIPTION,
+        expect.objectContaining({
+          imageUrl: expect.stringMatching(/^data:image\/png;base64,/),
+          prompt: expect.stringContaining('Transcribe any text visible in this image')
+        })
       );
     });
 
@@ -233,7 +247,7 @@ describe('RobotService', () => {
       mockRuntime.useModel = vi
         .fn()
         .mockImplementation((modelType: (typeof ModelType)[keyof typeof ModelType]) => {
-          if (modelType === ModelType.TRANSCRIPTION) {
+          if (modelType === ModelType.IMAGE_DESCRIPTION) {
             return Promise.reject(new Error('OCR error'));
           }
           return Promise.resolve('');

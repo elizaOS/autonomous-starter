@@ -11,6 +11,35 @@
 - These plugins interact: the autonomous loop might decide to execute specific shell commands to gather information, perform actions, or manage system resources as part of achieving its goals.
 - All significant outcomes, including shell command results and errors, are saved as message memories, providing a traceable log of operations (as seen in `plugin-shell/action.ts`).
 
+### Safety & Debugging Features
+
+#### Kill Command for Debugging
+A shell action `KILL_AUTONOMOUS` allows you to stop the autonomous loop at any time:
+
+- **Command**: "kill autonomous loop", "stop autonomous mode", "halt autonomous"
+- **Action**: `KILL_AUTONOMOUS`
+- **Purpose**: Immediately stops the autonomous service for debugging
+
+Example usage:
+```
+User: "kill the autonomous loop"
+Agent: "Autonomous loop has been killed. The agent will no longer run autonomously until restarted."
+```
+
+#### Loop Interval Control
+Control how frequently the autonomous loop runs:
+
+- **Default interval**: 1000ms (1 second)
+- **Environment variable**: `AUTONOMOUS_LOOP_INTERVAL` (in milliseconds)
+- **Runtime setting**: `AUTONOMOUS_LOOP_INTERVAL` (in milliseconds)
+
+Example:
+```bash
+# Set 5-second intervals for slower, more deliberate operation
+export AUTONOMOUS_LOOP_INTERVAL=5000
+npm start
+```
+
 ### Key Plugins & Services
 
 - **`plugin-shell` (`packages/auto/src/plugin-shell`):**

@@ -130,12 +130,21 @@ export const events = {
 
       const parsedXml = parseKeyValueXml(response);
 
+      // Ensure all required fields have default values to prevent null errors
+      const safeXml = {
+        thought: parsedXml.thought || 'Processing...',
+        text: parsedXml.text || 'Continuing autonomous operation...',
+        actions: parsedXml.actions || 'IGNORE',
+        providers: parsedXml.providers || '',
+        simple: parsedXml.simple || false,
+      };
+
       const responseMemory = {
         content: {
-          thought: parsedXml.thought,
-          text: parsedXml.text,
-          actions: parsedXml.actions,
-          providers: parsedXml.providers,
+          thought: safeXml.thought,
+          text: safeXml.text,
+          actions: safeXml.actions,
+          providers: safeXml.providers,
         },
         entityId: createUniqueUuid(payload.runtime, payload.runtime.agentId),
         roomId: payload.message.roomId,
@@ -143,23 +152,23 @@ export const events = {
 
       await payload.runtime.createMemory(responseMemory, 'messages');
 
-      if (parsedXml.simple) {
+      if (safeXml.simple) {
         payload.callback({
-          text: parsedXml.text,
-          thought: parsedXml.thought,
-          actions: parsedXml.actions,
-          providers: parsedXml.providers,
+          text: safeXml.text,
+          thought: safeXml.thought,
+          actions: safeXml.actions,
+          providers: safeXml.providers,
         });
       } else {
         state = await payload.runtime.composeState(payload.message, ['AUTONOMOUS_FEED']);
 
         console.log(
           'Memory: ',
-          parsedXml.text +
+          safeXml.text +
             ' | ' +
-            parsedXml.actions?.map((action) => action.trim()).join(', ') +
+            (typeof safeXml.actions === 'string' ? safeXml.actions.split(',').map((action) => action.trim()).join(', ') : safeXml.actions) +
             ' | ' +
-            parsedXml.providers?.map((provider) => provider.trim()).join(', ')
+            (typeof safeXml.providers === 'string' ? safeXml.providers.split(',').map((provider) => provider.trim()).join(', ') : safeXml.providers)
         );
 
         // act
