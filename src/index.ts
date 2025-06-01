@@ -19,6 +19,7 @@ import { shellPlugin } from './plugin-shell';
 import { experiencePlugin } from './plugin-experience';
 import { envPlugin } from './plugin-env';
 import { TodoPlugin } from './plugin-todo';
+import { selfModificationPlugin } from './plugin-self-modification';
 
 /**
  * Represents the default character (Autoliza) with her specific attributes and behaviors.
@@ -174,6 +175,9 @@ export const character: Character = {
 const initCharacter = ({ runtime }: { runtime: IAgentRuntime }) => {
   logger.info('Initializing character');
   logger.info('Name: ', character.name);
+  
+  // Log that self-modification is enabled
+  logger.info('Self-modification capability enabled - Autoliza can now evolve and adapt her personality through experience');
 };
 
 export const projectAgent: ProjectAgent = {
@@ -190,6 +194,7 @@ export const projectAgent: ProjectAgent = {
     experiencePlugin,
     envPlugin,
     TodoPlugin,
+    selfModificationPlugin, // Enable self-modification capabilities
   ],
 };
 const project: Project = {
