@@ -30,7 +30,7 @@ export class RobotService extends Service {
     super(runtime);
   }
 
-  async start(): Promise<void> {
+  static async start(runtime: IAgentRuntime): Promise<Service> {
     try {
       logger.info('[RobotService] Initializing Tesseract.js worker...');
       // @ts-ignore TODO: Fix tesseract.js types if possible or use a more specific mock type
@@ -40,9 +40,21 @@ export class RobotService extends Service {
       logger.error('[RobotService] Failed to initialize Tesseract.js worker:', error);
       // Continue without Tesseract - will fall back to AI OCR
     }
+
+    return new RobotService(runtime);
   }
 
+  static async stop(runtime: IAgentRuntime): Promise<void> {
+    const service = runtime.getService<RobotService>('ROBOT' as any);
+    if (!service) {
+      logger.warn('[RobotService] RobotService not available');
+      return;
+    }
+
+    await service.stop();
+  }
   async stop(): Promise<void> {
+
     // Clean up resources
     this.context = null;
     this.previousScreenshot = null;

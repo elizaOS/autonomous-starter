@@ -12,7 +12,7 @@ dotenv.config();
 import { openaiPlugin } from '@elizaos/plugin-openai';
 import { autoPlugin } from './plugin-auto';
 import { bootstrapPlugin } from './plugin-bootstrap';
-import { groqPlugin } from './plugin-groq';
+import { groqPlugin } from '@elizaos/plugin-groq';
 import { pluginManagerPlugin } from './plugin-manager';
 import { robotPlugin } from './plugin-robot';
 import { shellPlugin } from './plugin-shell';
