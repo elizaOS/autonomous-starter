@@ -38,22 +38,38 @@ export const characterEvolutionEvaluator: Evaluator = {
   similes: [],
   
   validate: async (runtime: IAgentRuntime, message: Memory) => {
-    // Only evaluate after meaningful conversations
-    const recentMessages = message.roomId ? 
-      await runtime.getMemories({
-        roomId: message.roomId,
-        count: 10,
-        tableName: 'messages'
-      }) : [];
+    try {
+      // Only evaluate after meaningful conversations
+      let recentMessages: Memory[] = [];
       
-    return recentMessages.length >= 5;
+      // Check if getMemories method exists on runtime
+      if (typeof (runtime as any).getMemories === 'function' && message.roomId) {
+        try {
+          recentMessages = await (runtime as any).getMemories({
+            roomId: message.roomId,
+            count: 10,
+            tableName: 'messages'
+          });
+        } catch (error) {
+          logger.debug('Failed to get memories:', error);
+        }
+      }
+      
+      // Require at least 5 messages to evaluate
+      return recentMessages.length >= 5;
+    } catch (error) {
+      logger.error('Error in characterEvolution validate:', error);
+      return false;
+    }
   },
   
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    state: State
-  ): Promise<{ success: boolean; response?: string }> => {
+    state: State,
+    options?: any,
+    callback?: any
+  ): Promise<void> => {
     try {
       const context = composeContext({
         state,
@@ -67,7 +83,8 @@ export const characterEvolutionEvaluator: Evaluator = {
       });
       
       if (!analysis) {
-        return { success: false };
+        logger.warn('No analysis generated for character evolution');
+        return;
       }
       
       const decision = analysis.trim().toUpperCase();
@@ -76,31 +93,29 @@ export const characterEvolutionEvaluator: Evaluator = {
         // Log this for potential batch processing
         logger.info('Character evolution recommended based on conversation analysis');
         
-        // Could trigger automatic evolution in future versions
-        // For now, just track the recommendation
-        await runtime.setCache(
-          `evolution_recommendation_${message.roomId}`,
-          {
-            timestamp: new Date(),
-            reason: analysis,
-            conversationId: message.id
+        // Try to cache the recommendation if cache is available
+        if (typeof (runtime as any).setCache === 'function' && message.roomId) {
+          try {
+            await (runtime as any).setCache(
+              `evolution_recommendation_${message.roomId}`,
+              {
+                timestamp: new Date(),
+                reason: analysis,
+                conversationId: message.id
+              }
+            );
+          } catch (cacheError) {
+            logger.debug('Failed to cache evolution recommendation:', cacheError);
           }
-        );
+        }
         
-        return {
-          success: true,
-          response: 'Character evolution analysis: Modification recommended'
-        };
+        logger.info('Character evolution analysis: Modification recommended');
+      } else {
+        logger.debug(`Character evolution analysis: ${decision}`);
       }
-      
-      return {
-        success: true,
-        response: `Character evolution analysis: ${decision}`
-      };
       
     } catch (error) {
       logger.error('Error in character evolution evaluator:', error);
-      return { success: false };
     }
   },
   

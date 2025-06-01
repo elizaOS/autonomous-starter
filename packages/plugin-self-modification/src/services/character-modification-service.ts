@@ -25,18 +25,46 @@ export class CharacterModificationService extends Service {
   private snapshots: Map<UUID, CharacterSnapshot[]> = new Map();
   private currentVersion: Map<UUID, number> = new Map();
   private isLocked: boolean = false;
+  private saveTimeout: any = null;
   
   async initialize(): Promise<void> {
     logger.info('Initializing CharacterModificationService');
     
-    // Load modification history from database
-    await this.loadModificationHistory();
-    
-    // Take initial snapshot if none exists
-    const agentId = this.runtime.agentId;
-    if (!this.snapshots.has(agentId) || this.snapshots.get(agentId)!.length === 0) {
-      await this.createSnapshot('Initial character state');
+    try {
+      // Load modification history from database
+      await this.loadModificationHistory();
+      
+      // Take initial snapshot if none exists
+      const agentId = this.runtime.agentId;
+      if (!this.snapshots.has(agentId) || this.snapshots.get(agentId)!.length === 0) {
+        await this.createSnapshot('Initial character state');
+      }
+    } catch (error) {
+      logger.error('Failed to initialize CharacterModificationService:', error);
+      throw error;
     }
+  }
+  
+  async stop(): Promise<void> {
+    logger.info('Stopping CharacterModificationService');
+    
+    // Clear any pending save operations
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+      this.saveTimeout = null;
+    }
+    
+    // Save current state
+    try {
+      await this.saveState();
+    } catch (error) {
+      logger.error('Failed to save state during stop:', error);
+    }
+    
+    // Clear in-memory data
+    this.modifications.clear();
+    this.snapshots.clear();
+    this.currentVersion.clear();
   }
   
   async applyCharacterDiff(diffXml: string, options?: ModificationOptions): Promise<{
@@ -109,6 +137,9 @@ export class CharacterModificationService extends Service {
       // Persist to database
       await this.persistCharacterUpdate(updatedCharacter);
       
+      // Schedule state save
+      this.scheduleSaveState();
+      
       return {
         success: true,
         warnings: validation.warnings,
@@ -119,7 +150,7 @@ export class CharacterModificationService extends Service {
       logger.error('Failed to apply character diff:', error);
       return {
         success: false,
-        errors: [`Failed to apply modifications: ${error.message}`]
+        errors: [`Failed to apply modifications: ${error instanceof Error ? error.message : String(error)}`]
       };
     }
   }
@@ -139,7 +170,13 @@ export class CharacterModificationService extends Service {
       await this.createSnapshot(`Rollback to version ${targetSnapshot.versionNumber}`);
       
       // Restore character data
-      const restoredCharacter = targetSnapshot.characterData;
+      const restoredCharacter = targetSnapshot.characterData as Character;
+      
+      // Validate restored character
+      if (!validateCharacterStructure(restoredCharacter)) {
+        logger.error('Restored character structure is invalid');
+        return false;
+      }
       
       // Update runtime
       await this.updateRuntimeCharacter(restoredCharacter);
@@ -157,6 +194,9 @@ export class CharacterModificationService extends Service {
         mod.rolledBackAt = new Date();
       }
       
+      // Schedule state save
+      this.scheduleSaveState();
+      
       logger.info(`Rolled back to version ${targetSnapshot.versionNumber}`);
       return true;
       
@@ -168,12 +208,12 @@ export class CharacterModificationService extends Service {
   
   getCharacterHistory(): CharacterModification[] {
     const agentId = this.runtime.agentId;
-    return this.modifications.get(agentId) || [];
+    return [...(this.modifications.get(agentId) || [])];
   }
   
   getCharacterSnapshots(): CharacterSnapshot[] {
     const agentId = this.runtime.agentId;
-    return this.snapshots.get(agentId) || [];
+    return [...(this.snapshots.get(agentId) || [])];
   }
   
   getCurrentVersion(): number {
@@ -195,10 +235,29 @@ export class CharacterModificationService extends Service {
   
   private async loadModificationHistory(): Promise<void> {
     try {
-      // This would load from database in production
-      // For now, initialize empty collections
       const agentId = this.runtime.agentId;
       
+      // TODO: Load from database when tables are implemented
+      // For now, check if we have cached state
+      const cacheKey = `character_mods_${agentId}`;
+      
+      try {
+        // Check if runtime has cache methods
+        if (typeof (this.runtime as any).getCache === 'function') {
+          const cachedState = await (this.runtime as any).getCache(cacheKey);
+          if (cachedState) {
+            this.modifications.set(agentId, cachedState.modifications || []);
+            this.snapshots.set(agentId, cachedState.snapshots || []);
+            this.currentVersion.set(agentId, cachedState.currentVersion || 0);
+            logger.info('Loaded character modification state from cache');
+            return;
+          }
+        }
+      } catch (cacheError) {
+        logger.debug('Cache not available or error loading from cache:', cacheError);
+      }
+      
+      // Initialize empty collections if nothing loaded
       if (!this.modifications.has(agentId)) {
         this.modifications.set(agentId, []);
       }
@@ -213,7 +272,47 @@ export class CharacterModificationService extends Service {
       
     } catch (error) {
       logger.error('Failed to load modification history:', error);
+      throw error;
     }
+  }
+  
+  private async saveState(): Promise<void> {
+    try {
+      const agentId = this.runtime.agentId;
+      const cacheKey = `character_mods_${agentId}`;
+      
+      const state = {
+        modifications: this.modifications.get(agentId) || [],
+        snapshots: this.snapshots.get(agentId) || [],
+        currentVersion: this.currentVersion.get(agentId) || 0,
+        lastSaved: new Date().toISOString()
+      };
+      
+      // Try to save to cache if available
+      if (typeof (this.runtime as any).setCache === 'function') {
+        await (this.runtime as any).setCache(cacheKey, state);
+        logger.debug('Saved character modification state to cache');
+      }
+      
+      // TODO: Also save to database when tables are implemented
+      
+    } catch (error) {
+      logger.error('Failed to save modification state:', error);
+    }
+  }
+  
+  private scheduleSaveState(): void {
+    // Clear existing timeout
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+    }
+    
+    // Schedule save in 5 seconds
+    this.saveTimeout = setTimeout(() => {
+      this.saveState().catch(error => {
+        logger.error('Scheduled save failed:', error);
+      });
+    }, 5000);
   }
   
   private async createSnapshot(reason: string): Promise<CharacterSnapshot> {
@@ -221,11 +320,19 @@ export class CharacterModificationService extends Service {
     const currentSnapshots = this.snapshots.get(agentId) || [];
     const version = this.getNextVersion();
     
+    // Use structuredClone if available, fallback to JSON parse/stringify
+    let characterCopy: Character;
+    if (typeof structuredClone !== 'undefined') {
+      characterCopy = structuredClone(this.runtime.character);
+    } else {
+      characterCopy = JSON.parse(JSON.stringify(this.runtime.character));
+    }
+    
     const snapshot: CharacterSnapshot = {
       id: stringToUuid(uuidv4()) as UUID,
       agentId,
       versionNumber: version,
-      characterData: JSON.parse(JSON.stringify(this.runtime.character)),
+      characterData: characterCopy,
       createdAt: new Date()
     };
     
@@ -293,24 +400,35 @@ export class CharacterModificationService extends Service {
     // Update the runtime character object
     Object.assign(this.runtime.character, updatedCharacter);
     
-    // Notify other services of the change
-    await this.runtime.emit('character:updated', {
-      agentId: this.runtime.agentId,
-      character: updatedCharacter,
-      timestamp: new Date()
-    });
+    // Notify other services of the change using emitEvent (not emit)
+    try {
+      await this.runtime.emitEvent('character:updated', {
+        runtime: this.runtime,
+        source: 'characterModification',
+        agentId: this.runtime.agentId,
+        character: updatedCharacter,
+        timestamp: new Date()
+      });
+    } catch (error) {
+      logger.warn('Failed to emit character:updated event:', error);
+    }
   }
   
   private async persistCharacterUpdate(character: Character): Promise<void> {
     try {
-      // Update agent in database
-      const success = await this.runtime.updateAgent(this.runtime.agentId, character);
-      
-      if (!success) {
-        throw new Error('Failed to update agent in database');
+      // Check if updateAgent method exists
+      if (typeof (this.runtime as any).updateAgent === 'function') {
+        const success = await (this.runtime as any).updateAgent(this.runtime.agentId, character);
+        
+        if (!success) {
+          throw new Error('Failed to update agent in database');
+        }
+        
+        logger.info('Character update persisted to database');
+      } else {
+        // Fallback: Just log that we would persist
+        logger.warn('updateAgent method not available, character update not persisted to database');
       }
-      
-      logger.info('Character update persisted to database');
       
     } catch (error) {
       logger.error('Failed to persist character update:', error);
