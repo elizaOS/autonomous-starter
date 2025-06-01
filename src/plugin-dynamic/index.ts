@@ -1,4 +1,4 @@
-import { type Plugin } from "@elizaos/core";
+import { Plugin } from "@elizaos/core";
 import { PluginCreationService } from "./services/plugin-creation-service";
 import {
   createPluginAction,
@@ -7,29 +7,44 @@ import {
   createPluginFromDescriptionAction,
 } from "./actions/plugin-creation-actions";
 import {
-  pluginCreationJobsProvider,
+  pluginCreationStatusProvider,
   pluginCreationCapabilitiesProvider,
 } from "./providers/plugin-creation-providers";
 
-export const pluginCreationPlugin: Plugin = {
-  name: "@elizaos/plugin-dynamic-creation",
-  description:
-    "Enables agents to autonomously create new plugins using AI-driven development",
-  services: [PluginCreationService],
+// Export the plugin
+export const pluginDynamic: Plugin = {
+  name: "@elizaos/plugin-dynamic",
+  description: "Dynamic plugin creation system with AI-powered code generation",
   actions: [
     createPluginAction,
     checkPluginCreationStatusAction,
     cancelPluginCreationAction,
     createPluginFromDescriptionAction,
   ],
-  providers: [pluginCreationJobsProvider, pluginCreationCapabilitiesProvider],
+  providers: [
+    pluginCreationStatusProvider,
+    pluginCreationCapabilitiesProvider,
+  ],
+  services: [PluginCreationService],
+  evaluators: [],
 };
 
-export default pluginCreationPlugin;
+// Export individual components
+export {
+  PluginCreationService,
+  createPluginAction,
+  checkPluginCreationStatusAction,
+  cancelPluginCreationAction,
+  createPluginFromDescriptionAction,
+  pluginCreationStatusProvider,
+  pluginCreationCapabilitiesProvider,
+};
+
+// Default export
+export default pluginDynamic;
 
 // Re-export types and utilities
 export {
-  PluginCreationService,
   type PluginSpecification,
   type PluginCreationJob,
 } from "./services/plugin-creation-service";

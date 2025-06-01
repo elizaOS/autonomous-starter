@@ -116,18 +116,41 @@ export class PluginCreationService extends Service {
     }
 
     public async createPlugin(specification: PluginSpecification, apiKey?: string): Promise<string> {
+        // Validate plugin name to prevent path traversal
+        if (!this.isValidPluginName(specification.name)) {
+            throw new Error("Invalid plugin name. Must follow format: @scope/plugin-name");
+        }
+
+        // Rate limiting check
+        if (!this.checkRateLimit()) {
+            throw new Error("Rate limit exceeded. Please wait before creating another plugin.");
+        }
+
+        // Resource limit check
+        if (this.jobs.size >= 10) {
+            throw new Error("Maximum number of concurrent jobs reached. Please wait for existing jobs to complete.");
+        }
+
         // Initialize Anthropic if API key is provided
         if (apiKey && !this.anthropic) {
             this.anthropic = new Anthropic({ apiKey });
         }
 
         const jobId = uuidv4();
+        const sanitizedName = this.sanitizePluginName(specification.name);
         const outputPath = path.join(
             this.getDataDir(),
             "plugins",
             jobId,
-            specification.name
+            sanitizedName
         );
+
+        // Ensure output path is within data directory
+        const resolvedPath = path.resolve(outputPath);
+        const dataDir = path.resolve(this.getDataDir());
+        if (!resolvedPath.startsWith(dataDir)) {
+            throw new Error("Invalid output path");
+        }
 
         const job: PluginCreationJob = {
             id: jobId,
@@ -136,7 +159,7 @@ export class PluginCreationService extends Service {
             currentPhase: "initializing",
             progress: 0,
             logs: [],
-            outputPath,
+            outputPath: resolvedPath,
             startedAt: new Date(),
             currentIteration: 0,
             maxIterations: 5,
@@ -144,6 +167,17 @@ export class PluginCreationService extends Service {
         };
 
         this.jobs.set(jobId, job);
+
+        // Set timeout for job
+        setTimeout(() => {
+            const jobStatus = this.jobs.get(jobId);
+            if (jobStatus && (jobStatus.status === "pending" || jobStatus.status === "running")) {
+                jobStatus.status = "failed";
+                jobStatus.error = "Job timed out after 30 minutes";
+                jobStatus.completedAt = new Date();
+                this.logToJob(jobId, "Job timed out");
+            }
+        }, 30 * 60 * 1000); // 30 minutes timeout
 
         // Start creation process in background
         this.runCreationProcess(job).catch((error) => {
@@ -170,6 +204,11 @@ export class PluginCreationService extends Service {
             job.status = "cancelled";
             job.completedAt = new Date();
             this.logToJob(jobId, "Job cancelled by user");
+            
+            // Kill child process if exists
+            if (job.childProcess && !job.childProcess.killed) {
+                job.childProcess.kill('SIGTERM');
+            }
         }
     }
 
@@ -681,27 +720,48 @@ Respond with JSON:
         description: string,
     ): Promise<{ success: boolean; output: string }> {
         return new Promise((resolve) => {
-            logger.info(`${description} for ${job.specification.name}`);
+            this.logToJob(job.id, `${description} for ${job.specification.name}`);
 
             let output = "";
+            let outputSize = 0;
+            const maxOutputSize = 1024 * 1024; // 1MB limit
+            
             const child = spawn(command, args, {
                 cwd: job.outputPath,
                 env: { ...process.env, NODE_ENV: "test" },
+                shell: false, // Prevent shell injection
             });
 
-            child.stdout.on("data", (data) => {
-                output += data.toString();
-            });
+            const handleData = (data: Buffer) => {
+                outputSize += data.length;
+                if (outputSize < maxOutputSize) {
+                    output += data.toString();
+                } else if (outputSize === maxOutputSize) {
+                    output += "\n[Output truncated due to size limit]";
+                }
+            };
 
-            child.stderr.on("data", (data) => {
-                output += data.toString();
-            });
+            child.stdout.on("data", handleData);
+            child.stderr.on("data", handleData);
 
             child.on("close", (code) => {
                 resolve({
                     success: code === 0,
                     output,
                 });
+            });
+
+            // Kill process after timeout
+            const timeout = setTimeout(() => {
+                child.kill('SIGTERM');
+                resolve({
+                    success: false,
+                    output: output + "\n[Process killed due to timeout]"
+                });
+            }, 5 * 60 * 1000); // 5 minutes per command
+
+            child.on("exit", () => {
+                clearTimeout(timeout);
             });
 
             // Store process reference
@@ -817,5 +877,67 @@ Respond with JSON:
 
     listJobs(): PluginCreationJob[] {
         return Array.from(this.jobs.values());
+    }
+
+    private isValidPluginName(name: string): boolean {
+        // Validate plugin name format and prevent path traversal
+        const validNameRegex = /^@?[a-zA-Z0-9-_]+\/[a-zA-Z0-9-_]+$/;
+        return validNameRegex.test(name) && 
+               !name.includes('..') && 
+               !name.includes('./') && 
+               !name.includes('\\');
+    }
+
+    private sanitizePluginName(name: string): string {
+        // Remove @ prefix and replace / with -
+        return name.replace(/^@/, '').replace(/\//g, '-').toLowerCase();
+    }
+
+    private lastJobCreation: number = 0;
+    private jobCreationCount: number = 0;
+
+    private checkRateLimit(): boolean {
+        const now = Date.now();
+        const oneHour = 60 * 60 * 1000;
+        
+        // Reset counter if more than an hour has passed
+        if (now - this.lastJobCreation > oneHour) {
+            this.jobCreationCount = 0;
+        }
+        
+        // Allow max 10 jobs per hour
+        if (this.jobCreationCount >= 10) {
+            return false;
+        }
+        
+        this.lastJobCreation = now;
+        this.jobCreationCount++;
+        return true;
+    }
+
+    // Add cleanup method for old jobs
+    public cleanupOldJobs(): void {
+        const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const jobsToRemove: string[] = [];
+        
+        for (const [jobId, job] of this.jobs.entries()) {
+            if (job.completedAt && job.completedAt < oneWeekAgo) {
+                jobsToRemove.push(jobId);
+                
+                // Clean up output directory
+                if (job.outputPath) {
+                    fs.remove(job.outputPath).catch(err => {
+                        logger.error(`Failed to clean up job ${jobId} output:`, err);
+                    });
+                }
+            }
+        }
+        
+        // Remove old jobs from memory
+        jobsToRemove.forEach(jobId => this.jobs.delete(jobId));
+        
+        if (jobsToRemove.length > 0) {
+            logger.info(`Cleaned up ${jobsToRemove.length} old jobs`);
+        }
     }
 }
