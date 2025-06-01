@@ -1,8 +1,8 @@
-import type { Plugin } from '@elizaos/core';
-import { EnvManagerService } from './service';
-import { envStatusProvider } from './providers/envStatus';
-import { setEnvVarAction } from './actions/setEnvVar';
-import { generateEnvVarAction } from './actions/generateEnvVar';
+import type { Plugin } from "@elizaos/core";
+import { EnvManagerService } from "./service";
+import { envStatusProvider } from "./providers/envStatus";
+import { setEnvVarAction } from "./actions/setEnvVar";
+import { generateEnvVarAction } from "./actions/generateEnvVar";
 
 /**
  * Environment Variable Management Plugin
@@ -15,8 +15,9 @@ import { generateEnvVarAction } from './actions/generateEnvVar';
  * - Persistent storage in world metadata following the same pattern as settings
  */
 export const envPlugin: Plugin = {
-  name: 'plugin-env',
-  description: 'Environment variable management with auto-generation and validation capabilities',
+  name: "plugin-env",
+  description:
+    "Environment variable management with auto-generation and validation capabilities",
 
   services: [EnvManagerService],
 
@@ -43,12 +44,16 @@ export type {
   GenerationScript,
   GenerationScriptMetadata,
   ValidationResult,
-} from './types';
+} from "./types";
 
 // Export utility functions
-export { canGenerateEnvVar, generateScript, getGenerationDescription } from './generation';
+export {
+  canGenerateEnvVar,
+  generateScript,
+  getGenerationDescription,
+} from "./generation";
 
-export { validateEnvVar, validationStrategies } from './validation';
+export { validateEnvVar, validationStrategies } from "./validation";
 
 // Export service for direct access if needed
-export { EnvManagerService } from './service';
+export { EnvManagerService } from "./service";

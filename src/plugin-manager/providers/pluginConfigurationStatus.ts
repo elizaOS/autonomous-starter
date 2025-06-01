@@ -4,26 +4,33 @@ import {
   type Memory,
   type State,
   logger,
-} from '@elizaos/core';
-import { PluginManagerServiceType } from '../types';
-import { PluginConfigurationService } from '../services/pluginConfigurationService';
-import { PluginUserInteractionService } from '../services/pluginUserInteractionService';
+} from "@elizaos/core";
+import { PluginManagerServiceType } from "../types";
+import { PluginConfigurationService } from "../services/pluginConfigurationService";
+import { PluginUserInteractionService } from "../services/pluginUserInteractionService";
 
 export const pluginConfigurationStatusProvider: Provider = {
-  name: 'pluginConfigurationStatus',
-  description: 'Provides information about plugin configuration status, missing environment variables, and active configuration dialogs',
+  name: "pluginConfigurationStatus",
+  description:
+    "Provides information about plugin configuration status, missing environment variables, and active configuration dialogs",
 
   get: async (runtime: IAgentRuntime, message?: Memory, state?: State) => {
     try {
-      const configService = runtime.getService(PluginManagerServiceType.PLUGIN_CONFIGURATION) as PluginConfigurationService;
-      const interactionService = runtime.getService(PluginManagerServiceType.PLUGIN_USER_INTERACTION) as PluginUserInteractionService;
-      const pluginManagerService = runtime.getService(PluginManagerServiceType.PLUGIN_MANAGER) as any;
+      const configService = runtime.getService(
+        PluginManagerServiceType.PLUGIN_CONFIGURATION,
+      ) as PluginConfigurationService;
+      const interactionService = runtime.getService(
+        PluginManagerServiceType.PLUGIN_USER_INTERACTION,
+      ) as PluginUserInteractionService;
+      const pluginManagerService = runtime.getService(
+        PluginManagerServiceType.PLUGIN_MANAGER,
+      ) as any;
 
       if (!configService || !interactionService) {
         return {
-          text: '',
+          text: "",
           data: { available: false },
-          values: { configurationServicesAvailable: false }
+          values: { configurationServicesAvailable: false },
         };
       }
 
@@ -33,10 +40,10 @@ export const pluginConfigurationStatusProvider: Provider = {
         activeDialogs: [],
         totalPlugins: 0,
         configuredPlugins: 0,
-        needsConfiguration: 0
+        needsConfiguration: 0,
       };
 
-      let statusText = '';
+      let statusText = "";
 
       // Get all plugins if plugin manager is available
       if (pluginManagerService) {
@@ -47,14 +54,17 @@ export const pluginConfigurationStatusProvider: Provider = {
           for (const plugin of allPlugins) {
             try {
               // Try to parse plugin requirements
-              const result = await configService.parsePluginRequirements(`./plugins/${plugin.name}`);
-              
+              const result = await configService.parsePluginRequirements(
+                `./plugins/${plugin.name}`,
+              );
+
               if (result && result.requiredVars.length > 0) {
                 // Check configuration status
-                const currentConfig = await configService.getPluginConfiguration(plugin.name);
+                const currentConfig =
+                  await configService.getPluginConfiguration(plugin.name);
                 const missingVars = result.requiredVars
-                  .filter(varInfo => !currentConfig[varInfo.name])
-                  .map(varInfo => varInfo.name);
+                  .filter((varInfo) => !currentConfig[varInfo.name])
+                  .map((varInfo) => varInfo.name);
 
                 const pluginStatus = {
                   name: plugin.name,
@@ -62,13 +72,13 @@ export const pluginConfigurationStatusProvider: Provider = {
                   requiredVars: result.requiredVars.length,
                   missingVars: missingVars.length,
                   configured: missingVars.length === 0,
-                  variables: result.requiredVars.map(v => ({
+                  variables: result.requiredVars.map((v) => ({
                     name: v.name,
                     description: v.description,
                     required: v.required,
                     sensitive: v.sensitive,
-                    configured: !!currentConfig[v.name]
-                  }))
+                    configured: !!currentConfig[v.name],
+                  })),
                 };
 
                 statusData.plugins.push(pluginStatus);
@@ -86,12 +96,15 @@ export const pluginConfigurationStatusProvider: Provider = {
                   requiredVars: 0,
                   missingVars: 0,
                   configured: true,
-                  variables: []
+                  variables: [],
                 });
                 statusData.configuredPlugins++;
               }
             } catch (error) {
-              logger.warn(`[pluginConfigurationStatus] Failed to check configuration for plugin ${plugin.name}:`, error);
+              logger.warn(
+                `[pluginConfigurationStatus] Failed to check configuration for plugin ${plugin.name}:`,
+                error,
+              );
               // Add as unknown status
               statusData.plugins.push({
                 name: plugin.name,
@@ -100,36 +113,42 @@ export const pluginConfigurationStatusProvider: Provider = {
                 missingVars: 0,
                 configured: false,
                 variables: [],
-                error: 'Configuration check failed'
+                error: "Configuration check failed",
               });
             }
           }
         } catch (error) {
-          logger.error('[pluginConfigurationStatus] Failed to get plugins:', error);
+          logger.error(
+            "[pluginConfigurationStatus] Failed to get plugins:",
+            error,
+          );
         }
       }
 
       // Get active configuration dialogs
       try {
         const activeDialogs = interactionService.getActiveDialogs();
-        statusData.activeDialogs = activeDialogs.map(dialog => ({
+        statusData.activeDialogs = activeDialogs.map((dialog) => ({
           id: dialog.id,
           pluginName: dialog.pluginName,
           status: dialog.status,
           currentVariable: dialog.currentVariable,
           progress: {
             completed: Object.keys(dialog.responses).length,
-            total: dialog.request.missingVars.length
+            total: dialog.request.missingVars.length,
           },
-          startedAt: dialog.startedAt
+          startedAt: dialog.startedAt,
         }));
       } catch (error) {
-        logger.warn('[pluginConfigurationStatus] Failed to get active dialogs:', error);
+        logger.warn(
+          "[pluginConfigurationStatus] Failed to get active dialogs:",
+          error,
+        );
       }
 
       // Build status text
       if (statusData.totalPlugins === 0) {
-        statusText = 'No plugins are currently installed.';
+        statusText = "No plugins are currently installed.";
       } else {
         statusText += `Plugin Configuration Status:\n`;
         statusText += `• Total plugins: ${statusData.totalPlugins}\n`;
@@ -163,17 +182,21 @@ export const pluginConfigurationStatusProvider: Provider = {
           needsConfiguration: statusData.needsConfiguration,
           activeDialogs: statusData.activeDialogs.length,
           hasUnconfiguredPlugins: statusData.needsConfiguration > 0,
-          hasActiveDialogs: statusData.activeDialogs.length > 0
-        }
+          hasActiveDialogs: statusData.activeDialogs.length > 0,
+        },
       };
-
     } catch (error) {
-      logger.error('[pluginConfigurationStatus] Error getting plugin configuration status:', error);
+      logger.error(
+        "[pluginConfigurationStatus] Error getting plugin configuration status:",
+        error,
+      );
       return {
-        text: 'Error retrieving plugin configuration status.',
-        data: { error: error instanceof Error ? error.message : 'Unknown error' },
-        values: { configurationServicesAvailable: false, error: true }
+        text: "Error retrieving plugin configuration status.",
+        data: {
+          error: error instanceof Error ? error.message : "Unknown error",
+        },
+        values: { configurationServicesAvailable: false, error: true },
       };
     }
-  }
-}; 
+  },
+};

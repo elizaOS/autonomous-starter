@@ -1,5 +1,5 @@
-import type { IAgentRuntime, Memory, Provider, State } from '@elizaos/core';
-import { addHeader, ChannelType } from '@elizaos/core';
+import type { IAgentRuntime, Memory, Provider, State } from "@elizaos/core";
+import { addHeader, ChannelType } from "@elizaos/core";
 
 /**
  * Provides character information.
@@ -9,8 +9,8 @@ import { addHeader, ChannelType } from '@elizaos/core';
  * @returns {Object} Object containing values, data, and text sections.
  */
 export const characterProvider: Provider = {
-  name: 'CHARACTER',
-  description: 'Character information',
+  name: "CHARACTER",
+  description: "Character information",
   get: async (runtime: IAgentRuntime, message: Memory, state: State) => {
     const character = runtime.character;
 
@@ -22,13 +22,13 @@ export const characterProvider: Provider = {
       ? character.bio
           .sort(() => 0.5 - Math.random())
           .slice(0, 10)
-          .join(' ')
-      : character.bio || '';
+          .join(" ")
+      : character.bio || "";
 
     const bio = addHeader(`# About ${character.name}`, bioText);
 
     // System prompt
-    const system = character.system ?? '';
+    const system = character.system ?? "";
 
     // Select random topic if available
     const topicString =
@@ -39,7 +39,7 @@ export const characterProvider: Provider = {
     // postCreationTemplate in core prompts.ts
     // Write a post that is {{adjective}} about {{topic}} (without mentioning {{topic}} directly), from the perspective of {{agentName}}. Do not add commentary or acknowledge this request, just write the post.
     // Write a post that is {{Spartan is dirty}} about {{Spartan is currently}}
-    const topic = topicString || '';
+    const topic = topicString || "";
 
     // Format topics list
     const topics =
@@ -57,20 +57,22 @@ export const characterProvider: Provider = {
               }
               return `${topic}, `;
             })
-            .join('')}`
-        : '';
+            .join("")}`
+        : "";
 
     // Select random adjective if available
     const adjectiveString =
       character.adjectives && character.adjectives.length > 0
-        ? character.adjectives[Math.floor(Math.random() * character.adjectives.length)]
-        : '';
+        ? character.adjectives[
+            Math.floor(Math.random() * character.adjectives.length)
+          ]
+        : "";
 
-    const adjective = adjectiveString || '';
+    const adjective = adjectiveString || "";
 
     // Format post examples
     const formattedCharacterPostExamples = !character.postExamples
-      ? ''
+      ? ""
       : character.postExamples
           .sort(() => 0.5 - Math.random())
           .map((post) => {
@@ -78,31 +80,34 @@ export const characterProvider: Provider = {
             return messageString;
           })
           .slice(0, 50)
-          .join('\n');
+          .join("\n");
 
     const characterPostExamples =
       formattedCharacterPostExamples &&
-      formattedCharacterPostExamples.replaceAll('\n', '').length > 0
-        ? addHeader(`# Example Posts for ${character.name}`, formattedCharacterPostExamples)
-        : '';
+      formattedCharacterPostExamples.replaceAll("\n", "").length > 0
+        ? addHeader(
+            `# Example Posts for ${character.name}`,
+            formattedCharacterPostExamples,
+          )
+        : "";
 
     // Format message examples
     const formattedCharacterMessageExamples = !character.messageExamples
-      ? ''
+      ? ""
       : character.messageExamples
           .sort(() => 0.5 - Math.random())
           .slice(0, 5)
           .map((example) => {
             const exampleNames = Array.from({ length: 5 }, () =>
-              Math.random().toString(36).substring(2, 8)
+              Math.random().toString(36).substring(2, 8),
             );
 
             return example
               .map((message) => {
                 let messageString = `${message.name}: ${message.content.text}${
                   message.content.action || message.content.actions
-                    ? ` (actions: ${message.content.action || message.content.actions.join(', ')})`
-                    : ''
+                    ? ` (actions: ${message.content.action || message.content.actions.join(", ")})`
+                    : ""
                 }`;
                 exampleNames.forEach((name, index) => {
                   const placeholder = `{{name${index + 1}}}`;
@@ -110,22 +115,23 @@ export const characterProvider: Provider = {
                 });
                 return messageString;
               })
-              .join('\n');
+              .join("\n");
           })
-          .join('\n\n');
+          .join("\n\n");
 
     const characterMessageExamples =
       formattedCharacterMessageExamples &&
-      formattedCharacterMessageExamples.replaceAll('\n', '').length > 0
+      formattedCharacterMessageExamples.replaceAll("\n", "").length > 0
         ? addHeader(
             `# Example Conversations for ${character.name}`,
-            formattedCharacterMessageExamples
+            formattedCharacterMessageExamples,
           )
-        : '';
+        : "";
 
     const room = state.data.room ?? (await runtime.getRoom(message.roomId));
 
-    const isPostFormat = room?.type === ChannelType.FEED || room?.type === ChannelType.THREAD;
+    const isPostFormat =
+      room?.type === ChannelType.FEED || room?.type === ChannelType.THREAD;
 
     // Style directions
     const postDirections =
@@ -135,10 +141,10 @@ export const characterProvider: Provider = {
             (() => {
               const all = character?.style?.all || [];
               const post = character?.style?.post || [];
-              return [...all, ...post].join('\n');
-            })()
+              return [...all, ...post].join("\n");
+            })(),
           )
-        : '';
+        : "";
 
     const messageDirections =
       character?.style?.all?.length > 0 || character?.style?.chat?.length > 0
@@ -147,13 +153,15 @@ export const characterProvider: Provider = {
             (() => {
               const all = character?.style?.all || [];
               const chat = character?.style?.chat || [];
-              return [...all, ...chat].join('\n');
-            })()
+              return [...all, ...chat].join("\n");
+            })(),
           )
-        : '';
+        : "";
 
     const directions = isPostFormat ? postDirections : messageDirections;
-    const examples = isPostFormat ? characterPostExamples : characterMessageExamples;
+    const examples = isPostFormat
+      ? characterPostExamples
+      : characterMessageExamples;
 
     const values = {
       agentName,
@@ -183,12 +191,22 @@ export const characterProvider: Provider = {
 
     const topicSentence = topicString
       ? `${character.name} is currently interested in ${topicString}`
-      : '';
-    const adjectiveSentence = adjectiveString ? `${character.name} is ${adjectiveString}` : '';
+      : "";
+    const adjectiveSentence = adjectiveString
+      ? `${character.name} is ${adjectiveString}`
+      : "";
     // Combine all text sections
-    const text = [bio, adjectiveSentence, topicSentence, topics, directions, examples, system]
+    const text = [
+      bio,
+      adjectiveSentence,
+      topicSentence,
+      topics,
+      directions,
+      examples,
+      system,
+    ]
       .filter(Boolean)
-      .join('\n\n');
+      .join("\n\n");
 
     return {
       values,

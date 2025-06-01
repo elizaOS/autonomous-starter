@@ -1,4 +1,4 @@
-import { Experience } from '../types';
+import { Experience } from "../types";
 
 export interface DecayConfig {
   halfLife: number; // Time in milliseconds for confidence to decay by half
@@ -47,7 +47,7 @@ export class ConfidenceDecayManager {
    */
   getExperiencesNeedingReinforcement(
     experiences: Experience[],
-    threshold: number = 0.3
+    threshold: number = 0.3,
   ): Experience[] {
     return experiences.filter((exp) => {
       const decayed = this.getDecayedConfidence(exp);
@@ -58,7 +58,10 @@ export class ConfidenceDecayManager {
   /**
    * Calculate reinforcement boost when an experience is validated
    */
-  calculateReinforcementBoost(experience: Experience, validationStrength: number = 1.0): number {
+  calculateReinforcementBoost(
+    experience: Experience,
+    validationStrength: number = 1.0,
+  ): number {
     const currentConfidence = this.getDecayedConfidence(experience);
     const boost = (1 - currentConfidence) * validationStrength * 0.5;
     return Math.min(1, currentConfidence + boost);
@@ -71,27 +74,27 @@ export class ConfidenceDecayManager {
     const config = { ...this.config };
 
     // Facts and discoveries decay slower
-    if (experience.type === 'discovery' || experience.type === 'learning') {
+    if (experience.type === "discovery" || experience.type === "learning") {
       config.halfLife *= 2; // Double the half-life
     }
 
     // Warnings and corrections decay slower (important to remember)
-    if (experience.type === 'warning' || experience.type === 'correction') {
+    if (experience.type === "warning" || experience.type === "correction") {
       config.halfLife *= 1.5;
       config.minConfidence = 0.2; // Higher minimum
     }
 
     // Domain-specific adjustments
     switch (experience.domain) {
-      case 'security':
-      case 'safety':
+      case "security":
+      case "safety":
         config.halfLife *= 3; // Security lessons decay very slowly
         config.minConfidence = 0.3;
         break;
-      case 'performance':
+      case "performance":
         config.halfLife *= 0.5; // Performance insights may change quickly
         break;
-      case 'user_preference':
+      case "user_preference":
         config.halfLife *= 0.7; // User preferences can change
         break;
     }
@@ -104,7 +107,7 @@ export class ConfidenceDecayManager {
    */
   getConfidenceTrend(
     experience: Experience,
-    points: number = 10
+    points: number = 10,
   ): Array<{ timestamp: number; confidence: number }> {
     const trend: Array<{ timestamp: number; confidence: number }> = [];
     const now = Date.now();
@@ -123,7 +126,10 @@ export class ConfidenceDecayManager {
         const decayTime = age - specificConfig.decayStartDelay;
         const halfLives = decayTime / specificConfig.halfLife;
         const decayFactor = Math.pow(0.5, halfLives);
-        confidence = Math.max(specificConfig.minConfidence, experience.confidence * decayFactor);
+        confidence = Math.max(
+          specificConfig.minConfidence,
+          experience.confidence * decayFactor,
+        );
       }
 
       trend.push({ timestamp, confidence });

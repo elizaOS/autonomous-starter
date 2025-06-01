@@ -7,29 +7,29 @@ import {
   type State,
   addHeader,
   logger,
-} from '@elizaos/core';
-import { type ShellService } from './service'; // Import ShellService
+} from "@elizaos/core";
+import { type ShellService } from "./service"; // Import ShellService
 
 const MAX_INDIVIDUAL_OUTPUT_LENGTH = 8000; // Max length before truncating
 const TRUNCATE_SEGMENT_LENGTH = 4000; // Length of head/tail segments
 
 export const shellProvider: Provider = {
-  name: 'SHELL_HISTORY',
+  name: "SHELL_HISTORY",
   description:
-    'Provides the recent shell command history and current working directory. Assumes ShellService manages overall history length and summarization.',
+    "Provides the recent shell command history and current working directory. Assumes ShellService manages overall history length and summarization.",
   position: 99, // Position it appropriately
   get: async (runtime: IAgentRuntime, _message: Memory, _state: State) => {
-    const shellService = runtime.getService<ShellService>('SHELL' as any);
+    const shellService = runtime.getService<ShellService>("SHELL" as any);
 
     if (!shellService) {
-      logger.warn('[shellProvider] ShellService not found.');
+      logger.warn("[shellProvider] ShellService not found.");
       return {
         values: {
-          shellHistory: 'Shell service is not available.',
-          currentWorkingDirectory: 'N/A',
+          shellHistory: "Shell service is not available.",
+          currentWorkingDirectory: "N/A",
         },
-        text: addHeader('# Shell Status', 'Shell service is not available.'),
-        data: { history: [], cwd: 'N/A' },
+        text: addHeader("# Shell Status", "Shell service is not available."),
+        data: { history: [], cwd: "N/A" },
       };
     }
 
@@ -38,7 +38,7 @@ export const shellProvider: Provider = {
     const history = shellService.getHistory();
     const cwd = shellService.getCurrentWorkingDirectory();
 
-    let historyText = 'No commands in history.';
+    let historyText = "No commands in history.";
     if (history.length > 0) {
       historyText = history
         .map((entry) => {
@@ -62,10 +62,10 @@ export const shellProvider: Provider = {
           entryStr += `\n  Exit Code: ${entry.exitCode}`;
           return entryStr;
         })
-        .join('\n\n');
+        .join("\n\n");
     }
 
-    const text = `Current Directory: ${cwd}\n\n${addHeader('# Shell History', historyText)}`; // Removed "(Last 5)"
+    const text = `Current Directory: ${cwd}\n\n${addHeader("# Shell History", historyText)}`; // Removed "(Last 5)"
 
     return {
       values: {

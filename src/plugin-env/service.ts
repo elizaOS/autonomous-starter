@@ -1,15 +1,19 @@
-import { logger, Service, type IAgentRuntime, type UUID } from '@elizaos/core';
-import type { EnvVarMetadata, GenerationScriptMetadata, EnvVarConfig } from './types';
-import { canGenerateEnvVar } from './generation';
+import { logger, Service, type IAgentRuntime, type UUID } from "@elizaos/core";
+import type {
+  EnvVarMetadata,
+  GenerationScriptMetadata,
+  EnvVarConfig,
+} from "./types";
+import { canGenerateEnvVar } from "./generation";
 
 /**
  * Environment Manager Service for handling environment variable configuration
  * Follows the same pattern as TaskService and other services in the codebase
  */
 export class EnvManagerService extends Service {
-  static serviceType = 'ENV_MANAGER';
+  static serviceType = "ENV_MANAGER";
   capabilityDescription =
-    'The agent can manage environment variables for plugins, including auto-generation and validation';
+    "The agent can manage environment variables for plugins, including auto-generation and validation";
 
   /**
    * Start the EnvManagerService with the given runtime
@@ -24,7 +28,7 @@ export class EnvManagerService extends Service {
    * Initialize the service and scan for required environment variables
    */
   async initialize(): Promise<void> {
-    logger.info('[EnvManager] Initializing Environment Manager Service');
+    logger.info("[EnvManager] Initializing Environment Manager Service");
     await this.scanPluginRequirements();
   }
 
@@ -33,15 +37,19 @@ export class EnvManagerService extends Service {
    */
   async scanPluginRequirements(): Promise<void> {
     try {
-      const worldId = this.runtime.getSetting('WORLD_ID') as UUID;
+      const worldId = this.runtime.getSetting("WORLD_ID") as UUID;
       if (!worldId) {
-        logger.warn('[EnvManager] No WORLD_ID found, cannot scan plugin requirements');
+        logger.warn(
+          "[EnvManager] No WORLD_ID found, cannot scan plugin requirements",
+        );
         return;
       }
 
       const world = await this.runtime.getWorld(worldId);
       if (!world) {
-        logger.warn('[EnvManager] World not found, cannot scan plugin requirements');
+        logger.warn(
+          "[EnvManager] World not found, cannot scan plugin requirements",
+        );
         return;
       }
 
@@ -61,7 +69,7 @@ export class EnvManagerService extends Service {
       if (character.settings?.secrets) {
         await this.scanCharacterSecrets(
           character.settings.secrets,
-          world.metadata.envVars as EnvVarMetadata
+          world.metadata.envVars as EnvVarMetadata,
         );
       }
 
@@ -71,9 +79,9 @@ export class EnvManagerService extends Service {
       // Save updated metadata
       await this.runtime.updateWorld(world);
 
-      logger.info('[EnvManager] Plugin requirements scan completed');
+      logger.info("[EnvManager] Plugin requirements scan completed");
     } catch (error) {
-      logger.error('[EnvManager] Error scanning plugin requirements:', error);
+      logger.error("[EnvManager] Error scanning plugin requirements:", error);
     }
   }
 
@@ -82,22 +90,22 @@ export class EnvManagerService extends Service {
    */
   private async scanCharacterSecrets(
     secrets: Record<string, any>,
-    envVars: EnvVarMetadata
+    envVars: EnvVarMetadata,
   ): Promise<void> {
     for (const [key, value] of Object.entries(secrets)) {
-      if (!envVars['character']) {
-        envVars['character'] = {};
+      if (!envVars["character"]) {
+        envVars["character"] = {};
       }
 
-      if (!envVars['character'][key]) {
+      if (!envVars["character"][key]) {
         const config: EnvVarConfig = {
           type: this.inferVariableType(key),
           required: true,
           description: `Character setting: ${key}`,
           canGenerate: canGenerateEnvVar(key, this.inferVariableType(key)),
-          status: value ? 'valid' : 'missing',
+          status: value ? "valid" : "missing",
           attempts: 0,
-          plugin: 'character',
+          plugin: "character",
           createdAt: Date.now(),
         };
 
@@ -106,7 +114,7 @@ export class EnvManagerService extends Service {
           config.validatedAt = Date.now();
         }
 
-        envVars['character'][key] = config;
+        envVars["character"][key] = config;
       }
     }
   }
@@ -115,15 +123,17 @@ export class EnvManagerService extends Service {
    * Scan loaded plugins for environment variable requirements
    */
   private async scanLoadedPlugins(envVars: EnvVarMetadata): Promise<void> {
-    logger.debug('[EnvManager] Scanning loaded plugins for environment variable requirements...');
+    logger.debug(
+      "[EnvManager] Scanning loaded plugins for environment variable requirements...",
+    );
 
     if (!this.runtime.plugins) {
-      logger.debug('[EnvManager] No runtime plugins found to scan.');
+      logger.debug("[EnvManager] No runtime plugins found to scan.");
       return;
     }
 
     for (const pluginInstance of this.runtime.plugins) {
-      if (pluginInstance.name === 'plugin-env') continue; // Skip self
+      if (pluginInstance.name === "plugin-env") continue; // Skip self
 
       const declared = (pluginInstance as any).declaredEnvVars as Record<
         string,
@@ -131,25 +141,38 @@ export class EnvManagerService extends Service {
       >;
 
       if (declared) {
-        logger.debug(`[EnvManager] Found declaredEnvVars for plugin: ${pluginInstance.name}`);
+        logger.debug(
+          `[EnvManager] Found declaredEnvVars for plugin: ${pluginInstance.name}`,
+        );
         if (!envVars[pluginInstance.name]) {
           envVars[pluginInstance.name] = {};
         }
 
         for (const [varName, declaration] of Object.entries(declared)) {
           if (!envVars[pluginInstance.name][varName]) {
-            const currentValue = process.env[varName] || declaration.defaultValue;
-            const inferredType = declaration.type || this.inferVariableType(varName);
+            const currentValue =
+              process.env[varName] || declaration.defaultValue;
+            const inferredType =
+              declaration.type || this.inferVariableType(varName);
 
             envVars[pluginInstance.name][varName] = {
               type: inferredType,
-              required: declaration.required !== undefined ? declaration.required : true,
-              description: declaration.description || `${varName} for ${pluginInstance.name}`,
+              required:
+                declaration.required !== undefined
+                  ? declaration.required
+                  : true,
+              description:
+                declaration.description ||
+                `${varName} for ${pluginInstance.name}`,
               canGenerate:
                 declaration.canGenerate !== undefined
                   ? declaration.canGenerate
-                  : canGenerateEnvVar(varName, inferredType, declaration.description),
-              status: currentValue ? 'valid' : 'missing',
+                  : canGenerateEnvVar(
+                      varName,
+                      inferredType,
+                      declaration.description,
+                    ),
+              status: currentValue ? "valid" : "missing",
               attempts: 0,
               plugin: pluginInstance.name,
               createdAt: Date.now(),
@@ -160,7 +183,7 @@ export class EnvManagerService extends Service {
               lastError: undefined,
             };
             logger.debug(
-              `[EnvManager] Registered requirement for ${varName} from ${pluginInstance.name}`
+              `[EnvManager] Registered requirement for ${varName} from ${pluginInstance.name}`,
             );
           }
         }
@@ -171,30 +194,32 @@ export class EnvManagerService extends Service {
   /**
    * Infer the type of an environment variable from its name
    */
-  private inferVariableType(varName: string): EnvVarConfig['type'] {
+  private inferVariableType(varName: string): EnvVarConfig["type"] {
     const lowerName = varName.toLowerCase();
 
-    if (lowerName.includes('api_key') || lowerName.includes('token')) {
-      return 'api_key';
-    } else if (lowerName.includes('private_key')) {
-      return 'private_key';
-    } else if (lowerName.includes('public_key')) {
-      return 'public_key';
-    } else if (lowerName.includes('url') || lowerName.includes('endpoint')) {
-      return 'url';
-    } else if (lowerName.includes('secret') || lowerName.includes('key')) {
-      return 'secret';
+    if (lowerName.includes("api_key") || lowerName.includes("token")) {
+      return "api_key";
+    } else if (lowerName.includes("private_key")) {
+      return "private_key";
+    } else if (lowerName.includes("public_key")) {
+      return "public_key";
+    } else if (lowerName.includes("url") || lowerName.includes("endpoint")) {
+      return "url";
+    } else if (lowerName.includes("secret") || lowerName.includes("key")) {
+      return "secret";
     } else {
-      return 'config';
+      return "config";
     }
   }
 
   /**
    * Get environment variables for a specific plugin
    */
-  async getEnvVarsForPlugin(pluginName: string): Promise<Record<string, EnvVarConfig> | null> {
+  async getEnvVarsForPlugin(
+    pluginName: string,
+  ): Promise<Record<string, EnvVarConfig> | null> {
     try {
-      const worldId = this.runtime.getSetting('WORLD_ID') as UUID;
+      const worldId = this.runtime.getSetting("WORLD_ID") as UUID;
       if (!worldId) return null;
 
       const world = await this.runtime.getWorld(worldId);
@@ -203,7 +228,10 @@ export class EnvManagerService extends Service {
       const envVars = world.metadata.envVars as EnvVarMetadata;
       return envVars[pluginName] || null;
     } catch (error) {
-      logger.error(`[EnvManager] Error getting env vars for plugin ${pluginName}:`, error);
+      logger.error(
+        `[EnvManager] Error getting env vars for plugin ${pluginName}:`,
+        error,
+      );
       return null;
     }
   }
@@ -213,13 +241,13 @@ export class EnvManagerService extends Service {
    */
   async getAllEnvVars(): Promise<EnvVarMetadata | null> {
     try {
-      const worldId = this.runtime.getSetting('WORLD_ID') as UUID;
+      const worldId = this.runtime.getSetting("WORLD_ID") as UUID;
       if (!worldId) return null;
 
       const world = await this.runtime.getWorld(worldId);
       return (world?.metadata?.envVars as EnvVarMetadata) || null;
     } catch (error) {
-      logger.error('[EnvManager] Error getting all env vars:', error);
+      logger.error("[EnvManager] Error getting all env vars:", error);
       return null;
     }
   }
@@ -230,10 +258,10 @@ export class EnvManagerService extends Service {
   async updateEnvVar(
     pluginName: string,
     varName: string,
-    updates: Partial<EnvVarConfig>
+    updates: Partial<EnvVarConfig>,
   ): Promise<boolean> {
     try {
-      const worldId = this.runtime.getSetting('WORLD_ID') as UUID;
+      const worldId = this.runtime.getSetting("WORLD_ID") as UUID;
       if (!worldId) return false;
 
       const world = await this.runtime.getWorld(worldId);
@@ -241,18 +269,19 @@ export class EnvManagerService extends Service {
 
       // Initialize metadata if needed
       if (!world.metadata) world.metadata = {};
-      if (!world.metadata.envVars) world.metadata.envVars = {} as EnvVarMetadata;
+      if (!world.metadata.envVars)
+        world.metadata.envVars = {} as EnvVarMetadata;
 
       const envVars = world.metadata.envVars as EnvVarMetadata;
       if (!envVars[pluginName]) envVars[pluginName] = {};
 
       // Update the environment variable
       const currentConfig = envVars[pluginName][varName] || {
-        type: 'config' as const,
+        type: "config" as const,
         required: false,
-        description: '',
+        description: "",
         canGenerate: false,
-        status: 'missing' as const,
+        status: "missing" as const,
         attempts: 0,
         plugin: pluginName,
         createdAt: Date.now(),
@@ -270,7 +299,7 @@ export class EnvManagerService extends Service {
       if (updates.value !== undefined) {
         process.env[varName] = updates.value;
         logger.info(
-          `[EnvManager] Updated environment variable ${varName} for plugin ${pluginName}`
+          `[EnvManager] Updated environment variable ${varName} for plugin ${pluginName}`,
         );
       }
 
@@ -290,7 +319,7 @@ export class EnvManagerService extends Service {
 
     for (const plugin of Object.values(envVars)) {
       for (const config of Object.values(plugin)) {
-        if (config.required && config.status === 'missing') {
+        if (config.required && config.status === "missing") {
           return true;
         }
       }
@@ -307,11 +336,15 @@ export class EnvManagerService extends Service {
     const envVars = await this.getAllEnvVars();
     if (!envVars) return [];
 
-    const missing: Array<{ plugin: string; varName: string; config: EnvVarConfig }> = [];
+    const missing: Array<{
+      plugin: string;
+      varName: string;
+      config: EnvVarConfig;
+    }> = [];
 
     for (const [pluginName, plugin] of Object.entries(envVars)) {
       for (const [varName, config] of Object.entries(plugin)) {
-        if (config.required && config.status === 'missing') {
+        if (config.required && config.status === "missing") {
           missing.push({ plugin: pluginName, varName, config });
         }
       }
@@ -334,14 +367,14 @@ export class EnvManagerService extends Service {
    * Stop the service
    */
   async stop(): Promise<void> {
-    logger.info('[EnvManager] Environment Manager Service stopped');
+    logger.info("[EnvManager] Environment Manager Service stopped");
   }
 
   /**
    * Static method to stop the service
    */
   static async stop(runtime: IAgentRuntime): Promise<void> {
-    const service = runtime.getService('ENV_MANAGER');
+    const service = runtime.getService("ENV_MANAGER");
     if (service) {
       await service.stop();
     }

@@ -1,8 +1,8 @@
-import { vi } from 'vitest';
+import { vi } from "vitest";
 
 // Mock UUID generation for consistent testing
-vi.mock('uuid', () => ({
-  v4: vi.fn(() => 'test-uuid-123'),
+vi.mock("uuid", () => ({
+  v4: vi.fn(() => "test-uuid-123"),
 }));
 
 // Mock console methods to reduce noise in tests
@@ -16,4 +16,4 @@ global.console = {
 };
 
 // Set up test environment
-process.env.NODE_ENV = 'test';
+process.env.NODE_ENV = "test";

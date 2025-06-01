@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { sql } from "drizzle-orm";
 import {
   type IAgentRuntime,
   type Route,
@@ -9,11 +9,11 @@ import {
   type Room,
   type World,
   type UUID,
-} from '@elizaos/core';
+} from "@elizaos/core";
 
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 // Define the equivalent of __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -21,12 +21,12 @@ const __dirname = path.dirname(__filename);
 
 // Resolve the path to the frontend distribution directory, assuming it's in 'dist'
 // relative to the package root (which is two levels up from src/plugin-todo)
-const frontendDist = path.resolve(__dirname, '../dist');
+const frontendDist = path.resolve(__dirname, "../dist");
 
-const frontPagePath = path.resolve(frontendDist, 'index.html');
-const assetsPath = path.resolve(frontendDist, 'assets');
-console.log('*** frontPagePath', frontPagePath);
-console.log('*** assetsPath', assetsPath);
+const frontPagePath = path.resolve(frontendDist, "index.html");
+const assetsPath = path.resolve(frontendDist, "assets");
+console.log("*** frontPagePath", frontPagePath);
+console.log("*** assetsPath", assetsPath);
 /**
  * Definition of routes with type, path, and handler for each route.
  * Routes include fetching trending tokens, wallet information, tweets, sentiment analysis, and signals.
@@ -34,41 +34,43 @@ console.log('*** assetsPath', assetsPath);
 
 export const routes: Route[] = [
   {
-    type: 'GET',
-    path: '/hello',
+    type: "GET",
+    path: "/hello",
     handler: async (_req: any, res: any) => {
-      res.send('hello');
+      res.send("hello");
     },
   },
   // Serve the frontend index.html for the main /todos path
   {
-    type: 'GET',
-    path: '/todos',
+    type: "GET",
+    path: "/todos",
     handler: async (_req: any, res: any, runtime: IAgentRuntime) => {
       // const route = _req.url; // Unused variable
       if (fs.existsSync(frontPagePath)) {
         res.sendFile(frontPagePath);
       } else {
-        res.status(404).send('Frontend not built. Run build command in frontend directory.');
+        res
+          .status(404)
+          .send("Frontend not built. Run build command in frontend directory.");
       }
     },
   },
   // Serve static assets for the frontend
   {
-    type: 'GET',
-    path: '/todos/assets/*',
+    type: "GET",
+    path: "/todos/assets/*",
     handler: async (req: any, res: any) => {
       // Extract the requested asset path relative to '/todos/assets/'
-      const assetRelativePath = req.path.split('/todos/assets/')[1];
+      const assetRelativePath = req.path.split("/todos/assets/")[1];
       if (!assetRelativePath) {
-        return res.status(400).send('Invalid asset path');
+        return res.status(400).send("Invalid asset path");
       }
       // Construct the full path to the asset within the frontendDist/assets directory
       const filePath = path.resolve(assetsPath, assetRelativePath); // Corrected base path
 
       // Basic security check to prevent path traversal
       if (!filePath.startsWith(assetsPath)) {
-        return res.status(403).send('Forbidden');
+        return res.status(403).send("Forbidden");
       }
 
       // Check if the file exists and serve it
@@ -76,26 +78,28 @@ export const routes: Route[] = [
         // Let express handle MIME types based on file extension
         res.sendFile(filePath);
       } else {
-        res.status(404).send('Asset not found');
+        res.status(404).send("Asset not found");
       }
     },
   },
   // API route to get all TODOs, structured by world and room
   {
-    type: 'GET',
-    path: '/api/todos',
+    type: "GET",
+    path: "/api/todos",
     handler: async (req: any, res: any, runtime: IAgentRuntime) => {
       try {
         // 1. Get all room IDs the agent is a participant in
-        const agentRoomIds = await runtime.getRoomsForParticipant(runtime.agentId);
+        const agentRoomIds = await runtime.getRoomsForParticipant(
+          runtime.agentId,
+        );
         if (!agentRoomIds || agentRoomIds.length === 0) {
           logger.debug(
-            `[API /api/todos] Agent ${runtime.agentId} is not a participant in any rooms.`
+            `[API /api/todos] Agent ${runtime.agentId} is not a participant in any rooms.`,
           );
           return res.json([]); // No rooms for this agent
         }
         logger.debug(
-          `[API /api/todos] Agent ${runtime.agentId} is in rooms: ${agentRoomIds.join(', ')}`
+          `[API /api/todos] Agent ${runtime.agentId} is in rooms: ${agentRoomIds.join(", ")}`,
         );
 
         // 2. Fetch details for these specific rooms
@@ -106,12 +110,14 @@ export const routes: Route[] = [
           if (room) {
             agentRooms.push(room);
           } else {
-            logger.warn(`[API /api/todos] Could not fetch details for room ID: ${roomId}`);
+            logger.warn(
+              `[API /api/todos] Could not fetch details for room ID: ${roomId}`,
+            );
           }
         }
         if (agentRooms.length === 0) {
           logger.debug(
-            `[API /api/todos] No valid room details found for agent's participated rooms.`
+            `[API /api/todos] No valid room details found for agent's participated rooms.`,
           );
           return res.json([]);
         }
@@ -125,7 +131,7 @@ export const routes: Route[] = [
 
         // Fetch tasks per room since roomIds array likely not supported
         for (const roomId of agentRoomIds) {
-          const tasks = await runtime.getTasks({ roomId, tags: ['TODO'] });
+          const tasks = await runtime.getTasks({ roomId, tags: ["TODO"] });
           tasksByRoom.set(roomId, tasks || []);
         }
 
@@ -143,8 +149,9 @@ export const routes: Route[] = [
           } else {
             logger.warn(`[API /api/todos] Room ${room.id} is missing worldId.`);
             // Handle rooms without worldId (e.g., add to a default/unknown world)
-            const unknownWorldId = 'unknown-world';
-            if (!roomsByWorld.has(unknownWorldId)) roomsByWorld.set(unknownWorldId, []);
+            const unknownWorldId = "unknown-world";
+            if (!roomsByWorld.has(unknownWorldId))
+              roomsByWorld.set(unknownWorldId, []);
             roomsByWorld.get(unknownWorldId)?.push(room);
           }
         }
@@ -155,48 +162,52 @@ export const routes: Route[] = [
           if (world) worldsMap.set(worldId, world);
         }
         // Add placeholder for unknown world if needed
-        if (roomsByWorld.has('unknown-world')) {
-          worldsMap.set('unknown-world', {
-            id: 'unknown-world' as UUID,
-            name: 'Rooms without World',
+        if (roomsByWorld.has("unknown-world")) {
+          worldsMap.set("unknown-world", {
+            id: "unknown-world" as UUID,
+            name: "Rooms without World",
           } as World);
         }
 
         // 5. Structure the final response
-        const structuredResponse = Array.from(worldsMap.entries()).map(([worldId, world]) => {
-          const rooms = roomsByWorld.get(worldId) || [];
-          return {
-            worldId: world.id,
-            worldName: world.name || `World ${world.id.substring(0, 6)}`,
-            rooms: rooms.map((room) => ({
-              roomId: room.id,
-              roomName: room.name || `Room ${room.id.substring(0, 6)}`,
-              tasks: tasksByRoom.get(room.id) || [],
-            })),
-          };
-        });
+        const structuredResponse = Array.from(worldsMap.entries()).map(
+          ([worldId, world]) => {
+            const rooms = roomsByWorld.get(worldId) || [];
+            return {
+              worldId: world.id,
+              worldName: world.name || `World ${world.id.substring(0, 6)}`,
+              rooms: rooms.map((room) => ({
+                roomId: room.id,
+                roomName: room.name || `Room ${room.id.substring(0, 6)}`,
+                tasks: tasksByRoom.get(room.id) || [],
+              })),
+            };
+          },
+        );
 
         res.json(structuredResponse);
       } catch (error) {
-        console.error('Error fetching structured todos:', error);
-        logger.error('[API /api/todos] Error fetching structured todos:', {
+        console.error("Error fetching structured todos:", error);
+        logger.error("[API /api/todos] Error fetching structured todos:", {
           error: error instanceof Error ? error.message : String(error),
           stack: error instanceof Error ? error.stack : undefined,
         });
-        res.status(500).send('Error fetching todos');
+        res.status(500).send("Error fetching todos");
       }
     },
   },
   // API route to get all tags
   {
-    type: 'GET',
-    path: '/api/tags',
+    type: "GET",
+    path: "/api/tags",
     handler: async (_req: any, res: any, runtime: IAgentRuntime) => {
       try {
         // Use runtime.db which should be the Drizzle instance from the adapter
-        if (!runtime.db || typeof runtime.db.execute !== 'function') {
-          logger.error('[API /api/tags] runtime.db is not available or not a Drizzle instance.');
-          return res.status(500).send('Database connection not available');
+        if (!runtime.db || typeof runtime.db.execute !== "function") {
+          logger.error(
+            "[API /api/tags] runtime.db is not available or not a Drizzle instance.",
+          );
+          return res.status(500).send("Database connection not available");
         }
 
         // Execute a raw SQL query to get distinct tags
@@ -216,58 +227,60 @@ export const routes: Route[] = [
 
         res.json(tags.filter(Boolean)); // Filter out any null/empty tags
       } catch (error) {
-        console.error('Error fetching unique tags:', error);
-        logger.error('[API /api/tags] Error fetching unique tags:', {
+        console.error("Error fetching unique tags:", error);
+        logger.error("[API /api/tags] Error fetching unique tags:", {
           error: error instanceof Error ? error.message : String(error),
           stack: error instanceof Error ? error.stack : undefined,
         });
-        res.status(500).send('Error fetching tags');
+        res.status(500).send("Error fetching tags");
       }
     },
   },
   // API route to create a new TODO
   {
-    type: 'POST',
-    path: '/api/todos',
+    type: "POST",
+    path: "/api/todos",
     handler: async (req: any, res: any, runtime: IAgentRuntime) => {
       try {
         const { name, type, priority, dueDate, isUrgent, roomId } = req.body; // Assume roomId is passed in body
 
         if (!name || !type || !roomId) {
-          return res.status(400).send('Missing required fields: name, type, roomId');
+          return res
+            .status(400)
+            .send("Missing required fields: name, type, roomId");
         }
 
-        const tags = ['TODO'];
+        const tags = ["TODO"];
         const metadata: Record<string, any> = {};
 
         // --- Determine Task Type and Tags ---
-        if (type === 'daily') {
-          tags.push('daily', 'recurring-daily');
+        if (type === "daily") {
+          tags.push("daily", "recurring-daily");
           metadata.streak = 0; // Initialize streak for daily tasks
           metadata.completedToday = false;
-        } else if (type === 'one-off') {
-          tags.push('one-off');
+        } else if (type === "one-off") {
+          tags.push("one-off");
           if (dueDate) {
             // Validate date format if necessary
             try {
               metadata.dueDate = new Date(dueDate).toISOString();
             } catch (e) {
-              return res.status(400).send('Invalid due date format');
+              return res.status(400).send("Invalid due date format");
             }
           }
           if (priority && priority >= 1 && priority <= 4) {
             tags.push(`priority-${priority}`);
           } else {
-            tags.push('priority-4'); // Default priority
+            tags.push("priority-4"); // Default priority
           }
           if (isUrgent) {
-            tags.push('urgent');
+            tags.push("urgent");
           }
-        } else if (type === 'aspirational') {
-          tags.push('aspirational');
+        } else if (type === "aspirational") {
+          tags.push("aspirational");
           // No specific metadata needed initially
         } else {
-          return res.status(400).send('Invalid task type');
+          return res.status(400).send("Invalid task type");
         }
 
         const worldId = createUniqueUuid(runtime, runtime.agentId);
@@ -278,8 +291,8 @@ export const routes: Route[] = [
           worldId: worldId,
           type: ChannelType.GROUP,
           name: name.trim(),
-          source: 'the-system',
-          worldName: 'The System',
+          source: "the-system",
+          worldName: "The System",
         });
 
         const newTask = await runtime.createTask({
@@ -292,15 +305,15 @@ export const routes: Route[] = [
 
         res.status(201).json(newTask);
       } catch (error) {
-        console.error('Error creating todo:', error);
-        res.status(500).send('Error creating todo');
+        console.error("Error creating todo:", error);
+        res.status(500).send("Error creating todo");
       }
     },
   },
   // API route to complete a TODO
   {
-    type: 'PUT',
-    path: '/api/todos/:id/complete',
+    type: "PUT",
+    path: "/api/todos/:id/complete",
     handler: async (req: any, res: any, runtime: IAgentRuntime) => {
       try {
         const taskId = req.params.id;
@@ -309,19 +322,19 @@ export const routes: Route[] = [
 
         // Task ID is still required
         if (!taskId) {
-          return res.status(400).send('Missing taskId');
+          return res.status(400).send("Missing taskId");
         }
 
         // It's good practice to ensure roomId exists on the task itself if we need it,
         // even if not passed in the body (unless points are skipped)
         const task = await runtime.getTask(taskId);
         if (!task) {
-          return res.status(404).send('Task not found');
+          return res.status(404).send("Task not found");
         }
 
         // Check if already completed
-        if (task.tags?.includes('completed')) {
-          return res.status(400).send('Task already completed');
+        if (task.tags?.includes("completed")) {
+          return res.status(400).send("Task already completed");
         }
 
         const now = new Date();
@@ -330,44 +343,47 @@ export const routes: Route[] = [
           completedAt: now.toISOString(),
           pointsAwarded: 0, // Default points to 0
         };
-        const tagsUpdate = [...(task.tags || []), 'completed'];
+        const tagsUpdate = [...(task.tags || []), "completed"];
 
-        let pointsMessage = ''; // Default points message
+        let pointsMessage = ""; // Default points message
 
         // --- Points Calculation (only if context is provided) ---
         if (entityId && task.roomId && worldId) {
           // Use task.roomId, ensure worldId is passed
-          let pointsReason = 'Task completed';
-          let completionStatus: 'onTime' | 'late' | 'daily' | 'streakBonus' = 'onTime';
+          let pointsReason = "Task completed";
+          let completionStatus: "onTime" | "late" | "daily" | "streakBonus" =
+            "onTime";
 
-          if (task.tags?.includes('daily')) {
+          if (task.tags?.includes("daily")) {
             metadataUpdate.completedToday = true;
-            metadataUpdate.lastCompletedDate = now.toISOString().split('T')[0];
+            metadataUpdate.lastCompletedDate = now.toISOString().split("T")[0];
             const currentStreak = metadataUpdate.streak || 0;
             metadataUpdate.streak = currentStreak + 1;
-            completionStatus = 'daily';
+            completionStatus = "daily";
             pointsReason = `Daily task completed (Streak: ${metadataUpdate.streak})`;
-          } else if (task.tags?.includes('one-off') && metadataUpdate.dueDate) {
+          } else if (task.tags?.includes("one-off") && metadataUpdate.dueDate) {
             if (now.getTime() > new Date(metadataUpdate.dueDate).getTime()) {
-              completionStatus = 'late';
-              pointsReason = 'Task completed (late)';
+              completionStatus = "late";
+              pointsReason = "Task completed (late)";
             } else {
-              completionStatus = 'onTime';
-              pointsReason = 'Task completed (on time)';
+              completionStatus = "onTime";
+              pointsReason = "Task completed (on time)";
             }
-          } else if (task.tags?.includes('aspirational')) {
-            pointsReason = 'Aspirational goal progress';
-            completionStatus = 'onTime';
+          } else if (task.tags?.includes("aspirational")) {
+            pointsReason = "Aspirational goal progress";
+            completionStatus = "onTime";
           }
 
           // Calculate points using the imported function
-          const { calculatePoints, addPoints } = await import('./pointsService');
+          const { calculatePoints, addPoints } = await import(
+            "./pointsService"
+          );
           const pointsToAdd = calculatePoints(task, completionStatus);
 
           // Add streak bonus points if applicable
           let streakBonusPoints = 0;
-          if (task.tags?.includes('daily') && metadataUpdate.streak > 1) {
-            streakBonusPoints = calculatePoints(task, 'streakBonus');
+          if (task.tags?.includes("daily") && metadataUpdate.streak > 1) {
+            streakBonusPoints = calculatePoints(task, "streakBonus");
           }
 
           const totalPoints = pointsToAdd + streakBonusPoints;
@@ -385,29 +401,31 @@ export const routes: Route[] = [
               totalPoints,
               combinedReason,
               task.roomId,
-              worldId
+              worldId,
             );
             if (success) {
               pointsMessage = ` Awarded ${totalPoints} points.`;
               logger.info(
-                `Awarded ${totalPoints} points to ${entityId} for task ${taskId}. Reason: ${combinedReason}`
+                `Awarded ${totalPoints} points to ${entityId} for task ${taskId}. Reason: ${combinedReason}`,
               );
             } else {
-              pointsMessage = ' Failed to award points.';
-              logger.error(`Failed to award points to ${entityId} for task ${taskId}.`);
+              pointsMessage = " Failed to award points.";
+              logger.error(
+                `Failed to award points to ${entityId} for task ${taskId}.`,
+              );
             }
           }
         } else {
           // Log if points are skipped due to missing context
           if (!entityId || !task.roomId || !worldId) {
             logger.warn(
-              `Skipping points calculation for task ${taskId} completion due to missing entityId, roomId, or worldId.`
+              `Skipping points calculation for task ${taskId} completion due to missing entityId, roomId, or worldId.`,
             );
           }
           // Handle non-point related metadata updates for daily tasks even if context is missing
-          if (task.tags?.includes('daily')) {
+          if (task.tags?.includes("daily")) {
             metadataUpdate.completedToday = true;
-            metadataUpdate.lastCompletedDate = now.toISOString().split('T')[0];
+            metadataUpdate.lastCompletedDate = now.toISOString().split("T")[0];
             const currentStreak = metadataUpdate.streak || 0;
             metadataUpdate.streak = currentStreak + 1;
           }
@@ -421,7 +439,10 @@ export const routes: Route[] = [
 
         // Return the final task state
         const updatedTask = await runtime.getTask(taskId);
-        res.json({ message: `Task ${taskId} completed.${pointsMessage}`, task: updatedTask });
+        res.json({
+          message: `Task ${taskId} completed.${pointsMessage}`,
+          task: updatedTask,
+        });
       } catch (error: any) {
         console.error(`Error completing todo ${req.params.id}:`, error);
         logger.error(`Error completing todo ${req.params.id}:`, error); // Added logger
@@ -431,32 +452,34 @@ export const routes: Route[] = [
   },
   // API route to uncomplete a TODO
   {
-    type: 'PUT',
-    path: '/api/todos/:id/uncomplete',
+    type: "PUT",
+    path: "/api/todos/:id/uncomplete",
     handler: async (req: any, res: any, runtime: IAgentRuntime) => {
       try {
         const taskId = req.params.id;
         if (!taskId) {
-          return res.status(400).send('Missing taskId');
+          return res.status(400).send("Missing taskId");
         }
 
         const task = await runtime.getTask(taskId);
         if (!task) {
-          return res.status(404).send('Task not found');
+          return res.status(404).send("Task not found");
         }
 
         // Check if already incomplete
-        if (!task.tags?.includes('completed')) {
-          return res.status(400).send('Task is already not completed');
+        if (!task.tags?.includes("completed")) {
+          return res.status(400).send("Task is already not completed");
         }
 
         // --- Logic to reverse completion ---
-        const tagsUpdate = (task.tags || []).filter((tag) => tag !== 'completed');
+        const tagsUpdate = (task.tags || []).filter(
+          (tag) => tag !== "completed",
+        );
         const metadataUpdate = { ...task.metadata };
         delete metadataUpdate.completedAt;
         delete metadataUpdate.pointsAwarded; // Optionally remove awarded points
         // Optionally handle streak reduction for daily tasks if needed
-        if (task.tags?.includes('daily') && metadataUpdate.completedToday) {
+        if (task.tags?.includes("daily") && metadataUpdate.completedToday) {
           // Simple approach: just mark not completed today, streak logic can be complex
           delete metadataUpdate.completedToday;
           // Optionally decrement streak if the completion was *today*
@@ -470,7 +493,10 @@ export const routes: Route[] = [
         });
 
         const updatedTask = await runtime.getTask(taskId);
-        res.json({ message: `Task ${taskId} marked as not completed.`, task: updatedTask });
+        res.json({
+          message: `Task ${taskId} marked as not completed.`,
+          task: updatedTask,
+        });
       } catch (error: any) {
         console.error(`Error uncompleting todo ${req.params.id}:`, error);
         logger.error(`Error uncompleting todo ${req.params.id}:`, error);
@@ -480,23 +506,23 @@ export const routes: Route[] = [
   },
   // API route to update an existing TODO
   {
-    type: 'PUT',
-    path: '/api/todos/:id',
+    type: "PUT",
+    path: "/api/todos/:id",
     handler: async (req: any, res: any, runtime: IAgentRuntime) => {
       try {
         const taskId = req.params.id;
         const updateData: TaskUpdate = req.body; // Directly use interface from updateTodo.ts
 
         if (!taskId) {
-          return res.status(400).send('Missing task ID');
+          return res.status(400).send("Missing task ID");
         }
         if (!updateData || Object.keys(updateData).length === 0) {
-          return res.status(400).send('Missing update data');
+          return res.status(400).send("Missing update data");
         }
 
         const task = await runtime.getTask(taskId);
         if (!task) {
-          return res.status(404).send('Task not found');
+          return res.status(404).send("Task not found");
         }
 
         // --- Apply updates (similar logic to applyTaskUpdate in updateTodo.ts) ---
@@ -505,20 +531,25 @@ export const routes: Route[] = [
         const updatedTaskData: Partial<Task> = {};
 
         if (updateData.name) updatedTaskData.name = updateData.name;
-        if (updateData.description) updatedTaskData.description = updateData.description;
+        if (updateData.description)
+          updatedTaskData.description = updateData.description;
 
-        if (updateData.priority && task.tags?.includes('one-off')) {
-          const idx = updatedTags.findIndex((tag) => tag.startsWith('priority-'));
+        if (updateData.priority && task.tags?.includes("one-off")) {
+          const idx = updatedTags.findIndex((tag) =>
+            tag.startsWith("priority-"),
+          );
           if (idx !== -1) updatedTags.splice(idx, 1);
           updatedTags.push(`priority-${updateData.priority}`);
         }
-        if (updateData.urgent !== undefined && task.tags?.includes('one-off')) {
-          const idx = updatedTags.indexOf('urgent');
+        if (updateData.urgent !== undefined && task.tags?.includes("one-off")) {
+          const idx = updatedTags.indexOf("urgent");
           if (idx !== -1) updatedTags.splice(idx, 1);
-          if (updateData.urgent) updatedTags.push('urgent');
+          if (updateData.urgent) updatedTags.push("urgent");
         }
-        if (updateData.recurring && task.tags?.includes('daily')) {
-          const idx = updatedTags.findIndex((tag) => tag.startsWith('recurring-'));
+        if (updateData.recurring && task.tags?.includes("daily")) {
+          const idx = updatedTags.findIndex((tag) =>
+            tag.startsWith("recurring-"),
+          );
           if (idx !== -1) updatedTags.splice(idx, 1);
           updatedTags.push(`recurring-${updateData.recurring}`);
         }
@@ -527,9 +558,11 @@ export const routes: Route[] = [
             delete updatedMetadata.dueDate;
           } else {
             try {
-              updatedMetadata.dueDate = new Date(updateData.dueDate).toISOString();
+              updatedMetadata.dueDate = new Date(
+                updateData.dueDate,
+              ).toISOString();
             } catch (e) {
-              return res.status(400).send('Invalid due date format provided');
+              return res.status(400).send("Invalid due date format provided");
             }
           }
         }
@@ -541,7 +574,10 @@ export const routes: Route[] = [
         });
 
         const finalTask = await runtime.getTask(taskId);
-        res.json({ message: `Task ${taskId} updated successfully`, task: finalTask });
+        res.json({
+          message: `Task ${taskId} updated successfully`,
+          task: finalTask,
+        });
       } catch (error: any) {
         console.error(`Error updating todo ${req.params.id}:`, error);
         logger.error(`Error updating todo ${req.params.id}:`, error);
@@ -551,19 +587,19 @@ export const routes: Route[] = [
   },
   // API route to delete a TODO
   {
-    type: 'DELETE',
-    path: '/api/todos/:id',
+    type: "DELETE",
+    path: "/api/todos/:id",
     handler: async (req: any, res: any, runtime: IAgentRuntime) => {
       try {
         const taskId = req.params.id;
         if (!taskId) {
-          return res.status(400).send('Missing task ID');
+          return res.status(400).send("Missing task ID");
         }
 
         // Check if task exists before attempting deletion for better error handling
         const task = await runtime.getTask(taskId);
         if (!task) {
-          return res.status(404).send('Task not found');
+          return res.status(404).send("Task not found");
         }
 
         await runtime.deleteTask(taskId); // Assume deleteTask returns void or boolean, handle potential failure
@@ -575,29 +611,33 @@ export const routes: Route[] = [
           res.status(200).send(`Task ${taskId} deleted successfully`);
         } else {
           // Log the failure if deletion didn't work as expected
-          logger.error(`Attempted to delete task ${taskId} but it still exists.`);
-          return res.status(500).send('Failed to delete task');
+          logger.error(
+            `Attempted to delete task ${taskId} but it still exists.`,
+          );
+          return res.status(500).send("Failed to delete task");
         }
       } catch (error) {
         console.error(`Error deleting todo ${req.params.id}:`, error);
-        res.status(500).send('Error deleting todo');
+        res.status(500).send("Error deleting todo");
       }
     },
   },
   // API route to create a new room in a world
   {
-    type: 'POST',
-    path: '/api/worlds/:worldId/rooms',
+    type: "POST",
+    path: "/api/worlds/:worldId/rooms",
     handler: async (req: any, res: any, runtime: IAgentRuntime) => {
       try {
         const worldId = req.params.worldId;
         const { name } = req.body;
 
         if (!worldId) {
-          return res.status(400).send('Missing worldId parameter');
+          return res.status(400).send("Missing worldId parameter");
         }
-        if (!name || typeof name !== 'string' || name.trim() === '') {
-          return res.status(400).send('Missing or invalid room name in request body');
+        if (!name || typeof name !== "string" || name.trim() === "") {
+          return res
+            .status(400)
+            .send("Missing or invalid room name in request body");
         }
 
         // Check if world exists (optional but good practice)
@@ -617,8 +657,8 @@ export const routes: Route[] = [
           worldId: worldId,
           type: ChannelType.GROUP,
           name: name.trim(),
-          source: 'the-system',
-          worldName: 'The System',
+          source: "the-system",
+          worldName: "The System",
         });
 
         // Create the room using runtime
@@ -629,15 +669,17 @@ export const routes: Route[] = [
           name: name.trim(),
           worldId: worldId,
           // --- Provide defaults or derive other fields as needed ---
-          source: 'thesystem-todo-plugin', // Identify the source
+          source: "thesystem-todo-plugin", // Identify the source
           type: ChannelType.GROUP, // Use GROUP as a reasonable default
           channelId: roomId, // Often useful to set channelId == roomId
-          serverId: worldExists.serverId || 'default', // Use world's serverId or default
+          serverId: worldExists.serverId || "default", // Use world's serverId or default
           // metadata: {} // Add any specific metadata if needed
         });
 
         if (!createdRoomId) {
-          throw new Error('Failed to create room, runtime.createRoom returned null/undefined');
+          throw new Error(
+            "Failed to create room, runtime.createRoom returned null/undefined",
+          );
         }
 
         // Fetch the newly created room to return it
@@ -645,16 +687,22 @@ export const routes: Route[] = [
 
         res.status(201).json(newRoom);
       } catch (error: any) {
-        console.error(`Error creating room in world ${req.params.worldId}:`, error);
-        logger.error(`Error creating room in world ${req.params.worldId}:`, error);
+        console.error(
+          `Error creating room in world ${req.params.worldId}:`,
+          error,
+        );
+        logger.error(
+          `Error creating room in world ${req.params.worldId}:`,
+          error,
+        );
         res.status(500).send(`Error creating room: ${error.message}`);
       }
     },
   },
   // API route to get all tasks (debug)
   {
-    type: 'GET',
-    path: '/api/all-tasks',
+    type: "GET",
+    path: "/api/all-tasks",
     handler: async (_req: any, res: any, runtime: IAgentRuntime) => {
       try {
         // Call getTasks without filters to get all tasks for the agent
@@ -671,12 +719,12 @@ export const routes: Route[] = [
 
         res.json(taskIdentifiers); // Return the mapped list
       } catch (error) {
-        console.error('Error fetching all tasks:', error);
-        logger.error('[API /api/all-tasks] Error fetching all tasks:', {
+        console.error("Error fetching all tasks:", error);
+        logger.error("[API /api/all-tasks] Error fetching all tasks:", {
           error: error instanceof Error ? error.message : String(error),
           stack: error instanceof Error ? error.stack : undefined,
         });
-        res.status(500).send('Error fetching all tasks');
+        res.status(500).send("Error fetching all tasks");
       }
     },
   },
@@ -691,5 +739,5 @@ interface TaskUpdate {
   priority?: 1 | 2 | 3 | 4;
   urgent?: boolean;
   dueDate?: string | null; // Expect ISO string or null
-  recurring?: 'daily' | 'weekly' | 'monthly';
+  recurring?: "daily" | "weekly" | "monthly";
 }

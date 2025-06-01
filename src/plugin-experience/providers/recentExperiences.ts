@@ -5,19 +5,29 @@ import {
   type State,
   logger,
   type ProviderResult,
-} from '@elizaos/core';
-import { ExperienceService } from '../service.js';
-import { ExperienceType, OutcomeType, type Experience } from '../types';
-import { getExperienceStats, formatExperienceForDisplay, formatPatternSummary } from '../utils/experienceFormatter.js';
-import { detectPatterns } from '../utils/experienceAnalyzer.js';
+} from "@elizaos/core";
+import { ExperienceService } from "../service.js";
+import { ExperienceType, OutcomeType, type Experience } from "../types";
+import {
+  getExperienceStats,
+  formatExperienceForDisplay,
+  formatPatternSummary,
+} from "../utils/experienceFormatter.js";
+import { detectPatterns } from "../utils/experienceAnalyzer.js";
 
 export const recentExperiencesProvider: Provider = {
-  name: 'recentExperiences',
-  description: 'Provides recent experiences, statistics, and detected patterns',
+  name: "recentExperiences",
+  description: "Provides recent experiences, statistics, and detected patterns",
 
-  async get(runtime: IAgentRuntime, message: Memory, state?: State): Promise<ProviderResult> {
+  async get(
+    runtime: IAgentRuntime,
+    message: Memory,
+    state?: State,
+  ): Promise<ProviderResult> {
     try {
-      const experienceService = runtime.getService('EXPERIENCE') as ExperienceService;
+      const experienceService = runtime.getService(
+        "EXPERIENCE",
+      ) as ExperienceService;
       if (!experienceService) {
         return {
           data: {
@@ -25,7 +35,7 @@ export const recentExperiencesProvider: Provider = {
             patterns: [],
             stats: null,
           },
-          text: 'Experience service not available',
+          text: "Experience service not available",
           values: { count: 0, limit: (state?.limit as number) || 10 },
         };
       }
@@ -34,12 +44,13 @@ export const recentExperiencesProvider: Provider = {
       const includeStats = state?.includeStats !== false;
       const includePatterns = state?.includePatterns !== false;
 
-      const experiences: Experience[] = await experienceService.queryExperiences({
-        limit,
-        timeRange: {
-          start: Date.now() - 7 * 24 * 60 * 60 * 1000, // Last 7 days
-        },
-      });
+      const experiences: Experience[] =
+        await experienceService.queryExperiences({
+          limit,
+          timeRange: {
+            start: Date.now() - 7 * 24 * 60 * 60 * 1000, // Last 7 days
+          },
+        });
 
       let statsSummaryText: string | undefined = undefined;
       let patternsSummaryText: string | undefined = undefined;
@@ -57,13 +68,13 @@ export const recentExperiencesProvider: Provider = {
           patternsSummaryText = detectedPatternsResult
             .slice(0, 3)
             .map((p) => formatPatternSummary(p))
-            .join('\n');
+            .join("\n");
         }
       }
 
       let summary = `Recent ${experiences.length} experiences:\n\n`;
       if (experiences.length === 0) {
-        summary = 'No experiences recorded yet.';
+        summary = "No experiences recorded yet.";
       } else {
         const topExperiences = experiences.slice(0, 3);
         topExperiences.forEach((exp, idx) => {
@@ -106,17 +117,17 @@ export const recentExperiencesProvider: Provider = {
           includeStats,
           includePatterns,
           timeRange: timeRangeValue,
-        }
+        },
       };
     } catch (error) {
-      logger.error('Error in recentExperiencesProvider:', error);
+      logger.error("Error in recentExperiencesProvider:", error);
       return {
         data: {
           experiences: [],
           patterns: [],
           stats: null,
         },
-        text: 'Error retrieving recent experiences',
+        text: "Error retrieving recent experiences",
         values: { count: 0, limit: (state?.limit as number) || 10 },
       };
     }

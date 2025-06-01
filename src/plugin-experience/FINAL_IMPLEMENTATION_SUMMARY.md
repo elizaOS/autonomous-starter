@@ -105,12 +105,12 @@ The Experience Plugin is a sophisticated self-learning system that enables auton
 const experience = await experienceService.recordExperience({
   type: ExperienceType.DISCOVERY,
   outcome: OutcomeType.POSITIVE,
-  context: 'Exploring new API endpoint',
-  action: 'api_request',
-  result: 'Successfully retrieved data',
-  learning: 'The API supports pagination through cursor parameter',
-  domain: 'network',
-  tags: ['api', 'pagination'],
+  context: "Exploring new API endpoint",
+  action: "api_request",
+  result: "Successfully retrieved data",
+  learning: "The API supports pagination through cursor parameter",
+  domain: "network",
+  tags: ["api", "pagination"],
   confidence: 0.9,
   importance: 0.8,
 });
@@ -120,7 +120,7 @@ const experience = await experienceService.recordExperience({
 
 ```typescript
 const experiences = await experienceService.queryExperiences({
-  domain: 'shell',
+  domain: "shell",
   type: ExperienceType.FAILURE,
   minConfidence: 0.6,
   timeRange: { start: Date.now() - 7 * 24 * 60 * 60 * 1000 },

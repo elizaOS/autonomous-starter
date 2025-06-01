@@ -1,13 +1,18 @@
-import type { IAgentRuntime, Memory, Provider } from '@elizaos/core';
-import { addHeader } from '@elizaos/core';
-import { type Config, adjectives, names, uniqueNamesGenerator } from 'unique-names-generator';
+import type { IAgentRuntime, Memory, Provider } from "@elizaos/core";
+import { addHeader } from "@elizaos/core";
+import {
+  type Config,
+  adjectives,
+  names,
+  uniqueNamesGenerator,
+} from "unique-names-generator";
 
 // Configuration for name generation
 const nameConfig: Config = {
   dictionaries: [adjectives, names],
-  separator: '',
+  separator: "",
   length: 2,
-  style: 'capital',
+  style: "capital",
 };
 
 // Example messages to determine if the agent should respond
@@ -81,8 +86,9 @@ const messageExamples = [
  * @type {Provider}
  */
 export const shouldRespondProvider: Provider = {
-  name: 'SHOULD_RESPOND',
-  description: 'Examples of when the agent should respond, ignore, or stop responding',
+  name: "SHOULD_RESPOND",
+  description:
+    "Examples of when the agent should respond, ignore, or stop responding",
   position: -1,
   get: async (runtime: IAgentRuntime, _message: Memory) => {
     // Get agent name
@@ -94,7 +100,9 @@ export const shouldRespondProvider: Provider = {
     const characterName = uniqueNamesGenerator(nameConfig);
 
     // Shuffle the message examples array
-    const shuffledExamples = [...messageExamples].sort(() => 0.5 - Math.random()).slice(0, 7); // Use a subset of examples
+    const shuffledExamples = [...messageExamples]
+      .sort(() => 0.5 - Math.random())
+      .slice(0, 7); // Use a subset of examples
 
     // Replace placeholders with generated names
     const formattedExamples = shuffledExamples.map((example) => {
@@ -106,7 +114,10 @@ export const shouldRespondProvider: Provider = {
     });
 
     // Join examples with newlines
-    const text = addHeader('# RESPONSE EXAMPLES', formattedExamples.join('\n\n'));
+    const text = addHeader(
+      "# RESPONSE EXAMPLES",
+      formattedExamples.join("\n\n"),
+    );
 
     return {
       text,

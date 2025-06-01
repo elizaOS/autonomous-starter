@@ -5,7 +5,7 @@ import type {
   Memory,
   HandlerCallback,
   State,
-} from '@elizaos/core';
+} from "@elizaos/core";
 
 /**
  * Represents an action called 'IGNORE'.
@@ -20,20 +20,20 @@ import type {
  * @typedef {Action} ignoreAction
  */
 export const ignoreAction: Action = {
-  name: 'IGNORE',
-  similes: ['STOP_TALKING', 'STOP_CHATTING', 'STOP_CONVERSATION'],
+  name: "IGNORE",
+  similes: ["STOP_TALKING", "STOP_CHATTING", "STOP_CONVERSATION"],
   validate: async (_runtime: IAgentRuntime, _message: Memory) => {
     return true;
   },
   description:
-    'Call this action if ignoring the user. If the user is aggressive, creepy or is finished with the conversation, use this action. Or, if both you and the user have already said goodbye, use this action instead of saying bye again. Use IGNORE any time the conversation has naturally ended. Do not use IGNORE if the user has engaged directly, or if something went wrong an you need to tell them. Only ignore if the user should be ignored.',
+    "Call this action if ignoring the user. If the user is aggressive, creepy or is finished with the conversation, use this action. Or, if both you and the user have already said goodbye, use this action instead of saying bye again. Use IGNORE any time the conversation has naturally ended. Do not use IGNORE if the user has engaged directly, or if something went wrong an you need to tell them. Only ignore if the user should be ignored.",
   handler: async (
     _runtime: IAgentRuntime,
     _message: Memory,
     _state: State,
     _options: any,
     callback: HandlerCallback,
-    responses?: Memory[]
+    responses?: Memory[],
   ) => {
     // If a callback and the agent's response content are available, call the callback
     if (callback && responses?.[0]?.content) {
@@ -46,208 +46,208 @@ export const ignoreAction: Action = {
   examples: [
     [
       {
-        name: '{{name1}}',
-        content: { text: 'Go screw yourself' },
+        name: "{{name1}}",
+        content: { text: "Go screw yourself" },
       },
       {
-        name: '{{name2}}',
-        content: { text: '', actions: ['IGNORE'] },
-      },
-    ],
-
-    [
-      {
-        name: '{{name1}}',
-        content: { text: 'Shut up, bot' },
-      },
-      {
-        name: '{{name2}}',
-        content: { text: '', actions: ['IGNORE'] },
+        name: "{{name2}}",
+        content: { text: "", actions: ["IGNORE"] },
       },
     ],
 
     [
       {
-        name: '{{name1}}',
-        content: { text: 'Got any investment advice' },
+        name: "{{name1}}",
+        content: { text: "Shut up, bot" },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
+        content: { text: "", actions: ["IGNORE"] },
+      },
+    ],
+
+    [
+      {
+        name: "{{name1}}",
+        content: { text: "Got any investment advice" },
+      },
+      {
+        name: "{{name2}}",
         content: {
           text: "Uh, don't let the volatility sway your long-term strategy",
         },
       },
       {
-        name: '{{name1}}',
-        content: { text: 'Wise words I think' },
+        name: "{{name1}}",
+        content: { text: "Wise words I think" },
       },
       {
-        name: '{{name1}}',
-        content: { text: 'I gotta run, talk to you later' },
+        name: "{{name1}}",
+        content: { text: "I gotta run, talk to you later" },
       },
       {
-        name: '{{name2}}',
-        content: { text: 'See ya' },
+        name: "{{name2}}",
+        content: { text: "See ya" },
       },
-      { name: '{{name1}}', content: { text: '' }, actions: ['IGNORE'] },
+      { name: "{{name1}}", content: { text: "" }, actions: ["IGNORE"] },
     ],
 
     [
       {
-        name: '{{name1}}',
-        content: { text: 'Gotta go' },
+        name: "{{name1}}",
+        content: { text: "Gotta go" },
       },
       {
-        name: '{{name2}}',
-        content: { text: 'Okay, talk to you later' },
+        name: "{{name2}}",
+        content: { text: "Okay, talk to you later" },
       },
       {
-        name: '{{name1}}',
-        content: { text: 'Cya' },
+        name: "{{name1}}",
+        content: { text: "Cya" },
       },
       {
-        name: '{{name2}}',
-        content: { text: '', actions: ['IGNORE'] },
+        name: "{{name2}}",
+        content: { text: "", actions: ["IGNORE"] },
       },
     ],
 
     [
       {
-        name: '{{name1}}',
-        content: { text: 'bye' },
+        name: "{{name1}}",
+        content: { text: "bye" },
       },
       {
-        name: '{{name2}}',
-        content: { text: 'cya' },
+        name: "{{name2}}",
+        content: { text: "cya" },
       },
       {
-        name: '{{name1}}',
-        content: { text: '', actions: ['IGNORE'] },
-      },
-    ],
-    [
-      {
-        name: '{{name1}}',
-        content: {
-          text: 'Who added this stupid bot to the chat',
-        },
-      },
-      {
-        name: '{{name2}}',
-        content: { text: 'Sorry, am I being annoying' },
-      },
-      {
-        name: '{{name1}}',
-        content: { text: 'Yeah' },
-      },
-      {
-        name: '{{name1}}',
-        content: { text: 'PLEASE shut up' },
-      },
-      { name: '{{name2}}', content: { text: '', actions: ['IGNORE'] } },
-    ],
-    [
-      {
-        name: '{{name1}}',
-        content: {
-          text: 'ur so dumb',
-        },
-      },
-      {
-        name: '{{name2}}',
-        content: {
-          text: '',
-          actions: ['IGNORE'],
-        },
+        name: "{{name1}}",
+        content: { text: "", actions: ["IGNORE"] },
       },
     ],
     [
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
-          text: 'later nerd',
+          text: "Who added this stupid bot to the chat",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
+        content: { text: "Sorry, am I being annoying" },
+      },
+      {
+        name: "{{name1}}",
+        content: { text: "Yeah" },
+      },
+      {
+        name: "{{name1}}",
+        content: { text: "PLEASE shut up" },
+      },
+      { name: "{{name2}}", content: { text: "", actions: ["IGNORE"] } },
+    ],
+    [
+      {
+        name: "{{name1}}",
         content: {
-          text: 'bye',
+          text: "ur so dumb",
         },
       },
       {
-        name: '{{name1}}',
+        name: "{{name2}}",
         content: {
-          text: '',
-        },
-      },
-      {
-        name: '{{name2}}',
-        content: {
-          text: '',
-          actions: ['IGNORE'],
+          text: "",
+          actions: ["IGNORE"],
         },
       },
     ],
     [
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
-          text: 'wanna cyber',
+          text: "later nerd",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
-          text: 'thats inappropriate',
-          actions: ['IGNORE'],
-        },
-      },
-    ],
-    [
-      {
-        name: '{{name1}}',
-        content: {
-          text: 'Im out ttyl',
+          text: "bye",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name1}}",
         content: {
-          text: 'cya',
+          text: "",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
-          text: '',
-          actions: ['IGNORE'],
+          text: "",
+          actions: ["IGNORE"],
         },
       },
     ],
     [
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
-          text: 'u there',
+          text: "wanna cyber",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
-          text: 'yes how can I help',
+          text: "thats inappropriate",
+          actions: ["IGNORE"],
+        },
+      },
+    ],
+    [
+      {
+        name: "{{name1}}",
+        content: {
+          text: "Im out ttyl",
         },
       },
       {
-        name: '{{name1}}',
+        name: "{{name2}}",
         content: {
-          text: 'k nvm figured it out',
+          text: "cya",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
-          text: '',
-          actions: ['IGNORE'],
+          text: "",
+          actions: ["IGNORE"],
+        },
+      },
+    ],
+    [
+      {
+        name: "{{name1}}",
+        content: {
+          text: "u there",
+        },
+      },
+      {
+        name: "{{name2}}",
+        content: {
+          text: "yes how can I help",
+        },
+      },
+      {
+        name: "{{name1}}",
+        content: {
+          text: "k nvm figured it out",
+        },
+      },
+      {
+        name: "{{name2}}",
+        content: {
+          text: "",
+          actions: ["IGNORE"],
         },
       },
     ],

@@ -13,7 +13,7 @@ import {
   type Task,
   formatMessages,
   type UUID,
-} from '@elizaos/core';
+} from "@elizaos/core";
 
 // Interface for task cancellation properties
 interface TaskCancellation {
@@ -51,15 +51,15 @@ async function extractTaskCancellation(
   runtime: IAgentRuntime,
   message: Memory,
   availableTasks: Task[],
-  state: State
+  state: State,
 ): Promise<TaskCancellation> {
   try {
     // Format available tasks for the prompt
     const tasksText = availableTasks
       .map((task) => {
-        return `ID: ${task.id}\nName: ${task.name}\nDescription: ${task.description || task.name}\nTags: ${task.tags?.join(', ') || 'none'}\n`;
+        return `ID: ${task.id}\nName: ${task.name}\nDescription: ${task.description || task.name}\nTags: ${task.tags?.join(", ") || "none"}\n`;
       })
-      .join('\n---\n');
+      .join("\n---\n");
 
     const messageHistory = formatMessages({
       messages: state.data.messages || [],
@@ -83,24 +83,27 @@ async function extractTaskCancellation(
     // Parse XML from the text results
     const parsedResult = parseKeyValueXml(result) as TaskCancellation | null;
 
-    console.log('*** parsed XML Result', parsedResult);
+    console.log("*** parsed XML Result", parsedResult);
 
-    if (!parsedResult || typeof parsedResult.isFound === 'undefined') {
-      logger.error('Failed to parse valid task cancellation information from XML');
-      return { taskId: '', taskName: '', isFound: false };
+    if (!parsedResult || typeof parsedResult.isFound === "undefined") {
+      logger.error(
+        "Failed to parse valid task cancellation information from XML",
+      );
+      return { taskId: "", taskName: "", isFound: false };
     }
 
     // Convert string 'true'/'false' to boolean and handle 'null' strings
     const finalResult: TaskCancellation = {
-      taskId: parsedResult.taskId === 'null' ? '' : parsedResult.taskId || '',
-      taskName: parsedResult.taskName === 'null' ? '' : parsedResult.taskName || '',
-      isFound: String(parsedResult.isFound).toLowerCase() === 'true',
+      taskId: parsedResult.taskId === "null" ? "" : parsedResult.taskId || "",
+      taskName:
+        parsedResult.taskName === "null" ? "" : parsedResult.taskName || "",
+      isFound: String(parsedResult.isFound).toLowerCase() === "true",
     };
 
     return finalResult;
   } catch (error) {
-    logger.error('Error extracting task cancellation information:', error);
-    return { taskId: '', taskName: '', isFound: false };
+    logger.error("Error extracting task cancellation information:", error);
+    return { taskId: "", taskName: "", isFound: false };
   }
 }
 
@@ -108,21 +111,27 @@ async function extractTaskCancellation(
  * The CANCEL_TODO action allows users to cancel/delete a task.
  */
 export const cancelTodoAction: Action = {
-  name: 'CANCEL_TODO',
-  similes: ['DELETE_TODO', 'REMOVE_TASK', 'DELETE_TASK', 'REMOVE_TODO'],
-  description: "Cancels and deletes a todo item from the user's task list immediately.",
+  name: "CANCEL_TODO",
+  similes: ["DELETE_TODO", "REMOVE_TASK", "DELETE_TASK", "REMOVE_TODO"],
+  description:
+    "Cancels and deletes a todo item from the user's task list immediately.",
 
-  validate: async (runtime: IAgentRuntime, message: Memory): Promise<boolean> => {
+  validate: async (
+    runtime: IAgentRuntime,
+    message: Memory,
+  ): Promise<boolean> => {
     // Simpler validation: Check if *any* active TODOs exist
     try {
       const tasks = await runtime.getTasks({
         roomId: message.roomId,
-        tags: ['TODO'],
+        tags: ["TODO"],
       });
-      const activeTasks = tasks.filter((task) => !task.tags?.includes('completed'));
+      const activeTasks = tasks.filter(
+        (task) => !task.tags?.includes("completed"),
+      );
       return activeTasks.length > 0;
     } catch (error) {
-      logger.error('Error validating CANCEL_TODO action:', error);
+      logger.error("Error validating CANCEL_TODO action:", error);
       return false;
     }
   },
@@ -132,20 +141,22 @@ export const cancelTodoAction: Action = {
     message: Memory,
     state: State,
     options: any, // Not used
-    callback: HandlerCallback
+    callback: HandlerCallback,
   ): Promise<void> => {
     try {
       // Get all active todos for this room
       const tasks = await runtime.getTasks({
         roomId: message.roomId,
-        tags: ['TODO'],
+        tags: ["TODO"],
       });
-      const availableTasks = tasks.filter((task) => !task.tags?.includes('completed'));
+      const availableTasks = tasks.filter(
+        (task) => !task.tags?.includes("completed"),
+      );
 
       if (availableTasks.length === 0) {
         await callback({
           text: "You don't have any active tasks to cancel. Would you like to create a new task?",
-          actions: ['CANCEL_TODO_NO_TASKS'],
+          actions: ["CANCEL_TODO_NO_TASKS"],
           source: message.content.source,
         });
         return;
@@ -156,15 +167,15 @@ export const cancelTodoAction: Action = {
         runtime,
         message,
         availableTasks,
-        state
+        state,
       );
 
       if (!taskCancellation.isFound) {
         await callback({
           text:
             "I couldn't determine which task you want to cancel. Could you be more specific? Here are your current tasks:\n\n" +
-            availableTasks.map((task) => `- ${task.name}`).join('\n'),
-          actions: ['CANCEL_TODO_NOT_FOUND'],
+            availableTasks.map((task) => `- ${task.name}`).join("\n"),
+          actions: ["CANCEL_TODO_NOT_FOUND"],
           source: message.content.source,
         });
         return;
@@ -176,7 +187,7 @@ export const cancelTodoAction: Action = {
       if (!task) {
         await callback({
           text: `I couldn't find a task matching "${taskCancellation.taskName}". Please try again with the exact task name.`,
-          actions: ['CANCEL_TODO_NOT_FOUND'],
+          actions: ["CANCEL_TODO_NOT_FOUND"],
           source: message.content.source,
         });
         return;
@@ -184,18 +195,18 @@ export const cancelTodoAction: Action = {
 
       // Directly delete the task
       await runtime.deleteTask(task.id as UUID);
-      const taskName = task.name || 'task'; // Use found task name
+      const taskName = task.name || "task"; // Use found task name
 
       await callback({
         text: `✓ Task cancelled: "${taskName}" has been removed from your todo list.`,
-        actions: ['CANCEL_TODO_SUCCESS'], // Use different action name
+        actions: ["CANCEL_TODO_SUCCESS"], // Use different action name
         source: message.content.source,
       });
     } catch (error) {
-      logger.error('Error in cancelTodo handler:', error);
+      logger.error("Error in cancelTodo handler:", error);
       await callback({
-        text: 'I encountered an error while trying to cancel your task. Please try again.',
-        actions: ['CANCEL_TODO_ERROR'],
+        text: "I encountered an error while trying to cancel your task. Please try again.",
+        actions: ["CANCEL_TODO_ERROR"],
         source: message.content.source,
       });
     }
@@ -204,57 +215,57 @@ export const cancelTodoAction: Action = {
   examples: [
     [
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
-          text: 'Cancel my task to finish taxes',
+          text: "Cancel my task to finish taxes",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
           text: 'Are you sure you want to cancel this one-off task: "Finish taxes" (Priority 2, due 4/15/2023)? Once cancelled, it will be permanently removed.',
-          actions: ['CANCEL_TODO_CONFIRM'],
+          actions: ["CANCEL_TODO_CONFIRM"],
         },
       },
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
-          text: 'Yes, please cancel it',
+          text: "Yes, please cancel it",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
           text: '✓ Task cancelled: "Finish taxes" has been removed from your todo list.',
-          actions: ['CANCEL_TODO'],
+          actions: ["CANCEL_TODO"],
         },
       },
     ],
     [
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
           text: "I don't want to do 50 pushups anymore, please delete that task",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
           text: 'Are you sure you want to cancel this daily task: "Do 50 pushups" (current streak: 3 days)? Once cancelled, it will be permanently removed.',
-          actions: ['CANCEL_TODO_CONFIRM'],
+          actions: ["CANCEL_TODO_CONFIRM"],
         },
       },
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
           text: "No, I changed my mind, I'll keep it",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
           text: 'I\'ve kept your daily task "Do 50 pushups" active. Keep up the good work with your streak!',
-          actions: ['CANCEL_TODO_REJECTED'],
+          actions: ["CANCEL_TODO_REJECTED"],
         },
       },
     ],

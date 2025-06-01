@@ -5,41 +5,55 @@ import {
   type State,
   logger,
   type ProviderResult,
-} from '@elizaos/core';
-import { PluginManagerService } from '../services/pluginManagerService';
-import { type PluginState, PluginStatus } from '../types';
+} from "@elizaos/core";
+import { PluginManagerService } from "../services/pluginManagerService";
+import { type PluginState, PluginStatus } from "../types";
 
 export const pluginStateProvider: Provider = {
-  name: 'pluginState',
+  name: "pluginState",
   description:
-    'Provides information about the current state of all plugins including loaded status, missing environment variables, and errors',
+    "Provides information about the current state of all plugins including loaded status, missing environment variables, and errors",
 
-  async get(runtime: IAgentRuntime, message: Memory, state: State): Promise<ProviderResult> {
+  async get(
+    runtime: IAgentRuntime,
+    message: Memory,
+    state: State,
+  ): Promise<ProviderResult> {
     try {
-      const pluginManager = runtime.getService('PLUGIN_MANAGER') as PluginManagerService;
+      const pluginManager = runtime.getService(
+        "PLUGIN_MANAGER",
+      ) as PluginManagerService;
 
       if (!pluginManager) {
         return {
-          text: 'Plugin Manager service is not available',
+          text: "Plugin Manager service is not available",
           values: {},
           data: {
-            error: 'Plugin Manager service not found',
+            error: "Plugin Manager service not found",
           },
         };
       }
 
       const plugins = pluginManager.getAllPlugins();
-      const loadedPlugins = plugins.filter((p) => p.status === PluginStatus.LOADED);
-      const errorPlugins = plugins.filter((p) => p.status === PluginStatus.ERROR);
-      const readyPlugins = plugins.filter((p) => p.status === PluginStatus.READY);
-      const buildingPlugins = plugins.filter((p) => p.status === PluginStatus.BUILDING);
+      const loadedPlugins = plugins.filter(
+        (p) => p.status === PluginStatus.LOADED,
+      );
+      const errorPlugins = plugins.filter(
+        (p) => p.status === PluginStatus.ERROR,
+      );
+      const readyPlugins = plugins.filter(
+        (p) => p.status === PluginStatus.READY,
+      );
+      const buildingPlugins = plugins.filter(
+        (p) => p.status === PluginStatus.BUILDING,
+      );
 
       // Format plugin information
       const formatPlugin = (plugin: PluginState) => {
         const parts: string[] = [`${plugin.name} (${plugin.status})`];
 
         if (plugin.missingEnvVars?.length > 0) {
-          parts.push(`Missing ENV vars: ${plugin.missingEnvVars.join(', ')}`);
+          parts.push(`Missing ENV vars: ${plugin.missingEnvVars.join(", ")}`);
         }
 
         if (plugin.error) {
@@ -47,35 +61,41 @@ export const pluginStateProvider: Provider = {
         }
 
         if (plugin.loadedAt) {
-          parts.push(`Loaded at: ${new Date(plugin.loadedAt).toLocaleString()}`);
+          parts.push(
+            `Loaded at: ${new Date(plugin.loadedAt).toLocaleString()}`,
+          );
         }
 
-        return parts.join(' - ');
+        return parts.join(" - ");
       };
 
       const sections: string[] = [];
 
       if (loadedPlugins.length > 0) {
         sections.push(
-          '**Loaded Plugins:**\n' + loadedPlugins.map((p) => `- ${formatPlugin(p)}`).join('\n')
+          "**Loaded Plugins:**\n" +
+            loadedPlugins.map((p) => `- ${formatPlugin(p)}`).join("\n"),
         );
       }
 
       if (errorPlugins.length > 0) {
         sections.push(
-          '**Plugins with Errors:**\n' + errorPlugins.map((p) => `- ${formatPlugin(p)}`).join('\n')
+          "**Plugins with Errors:**\n" +
+            errorPlugins.map((p) => `- ${formatPlugin(p)}`).join("\n"),
         );
       }
 
       if (readyPlugins.length > 0) {
         sections.push(
-          '**Ready to Load:**\n' + readyPlugins.map((p) => `- ${formatPlugin(p)}`).join('\n')
+          "**Ready to Load:**\n" +
+            readyPlugins.map((p) => `- ${formatPlugin(p)}`).join("\n"),
         );
       }
 
       if (buildingPlugins.length > 0) {
         sections.push(
-          '**Building:**\n' + buildingPlugins.map((p) => `- ${formatPlugin(p)}`).join('\n')
+          "**Building:**\n" +
+            buildingPlugins.map((p) => `- ${formatPlugin(p)}`).join("\n"),
         );
       }
 
@@ -87,16 +107,18 @@ export const pluginStateProvider: Provider = {
 
       if (allMissingEnvVars.size > 0) {
         sections.push(
-          `**All Missing Environment Variables:**\n${Array.from(allMissingEnvVars)
+          `**All Missing Environment Variables:**\n${Array.from(
+            allMissingEnvVars,
+          )
             .map((v) => `- ${v}`)
-            .join('\n')}`
+            .join("\n")}`,
         );
       }
 
       const text =
         sections.length > 0
-          ? sections.join('\n\n')
-          : 'No plugins registered in the Plugin Manager.';
+          ? sections.join("\n\n")
+          : "No plugins registered in the Plugin Manager.";
 
       return {
         text,
@@ -122,9 +144,9 @@ export const pluginStateProvider: Provider = {
         },
       };
     } catch (error) {
-      logger.error('[pluginStateProvider] Error getting plugin state:', error);
+      logger.error("[pluginStateProvider] Error getting plugin state:", error);
       return {
-        text: 'Error retrieving plugin state information',
+        text: "Error retrieving plugin state information",
         values: {},
         data: {
           error: error instanceof Error ? error.message : String(error),

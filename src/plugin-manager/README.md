@@ -17,11 +17,11 @@ The Plugin Manager enables dynamic loading and unloading of plugins at runtime w
 
 ```typescript
 enum PluginStatus {
-  BUILDING = 'building', // Plugin is being built/compiled
-  READY = 'ready', // Plugin is ready to be loaded
-  LOADED = 'loaded', // Plugin is currently loaded and active
-  ERROR = 'error', // Plugin encountered an error
-  UNLOADED = 'unloaded', // Plugin was previously loaded but is now unloaded
+  BUILDING = "building", // Plugin is being built/compiled
+  READY = "ready", // Plugin is ready to be loaded
+  LOADED = "loaded", // Plugin is currently loaded and active
+  ERROR = "error", // Plugin encountered an error
+  UNLOADED = "unloaded", // Plugin was previously loaded but is now unloaded
 }
 ```
 
@@ -37,7 +37,7 @@ enum PluginStatus {
 ### 1. Add Plugin Manager to Your Agent
 
 ```typescript
-import { pluginManagerPlugin } from './plugin-manager';
+import { pluginManagerPlugin } from "./plugin-manager";
 
 export const projectAgent: ProjectAgent = {
   character,
@@ -51,23 +51,23 @@ export const projectAgent: ProjectAgent = {
 ### 2. Create a Dynamic Plugin
 
 ```typescript
-import type { Plugin } from '@elizaos/core';
+import type { Plugin } from "@elizaos/core";
 
 export const myDynamicPlugin: Plugin = {
-  name: 'my-dynamic-plugin',
-  description: 'A plugin that can be loaded at runtime',
+  name: "my-dynamic-plugin",
+  description: "A plugin that can be loaded at runtime",
 
   actions: [
     {
-      name: 'MY_ACTION',
-      similes: ['my action'],
-      description: 'Does something useful',
+      name: "MY_ACTION",
+      similes: ["my action"],
+      description: "Does something useful",
       validate: async () => true,
       handler: async (runtime, message, state, options, callback) => {
         if (callback) {
           await callback({
-            text: 'Action executed!',
-            actions: ['MY_ACTION'],
+            text: "Action executed!",
+            actions: ["MY_ACTION"],
           });
         }
       },
@@ -76,18 +76,18 @@ export const myDynamicPlugin: Plugin = {
 
   providers: [
     {
-      name: 'myProvider',
-      description: 'Provides data',
+      name: "myProvider",
+      description: "Provides data",
       get: async () => ({
-        text: 'Provider data',
-        values: { key: 'value' },
+        text: "Provider data",
+        values: { key: "value" },
         data: {},
       }),
     },
   ],
 
   init: async (config, runtime) => {
-    console.log('Plugin initialized!');
+    console.log("Plugin initialized!");
   },
 };
 ```
@@ -96,7 +96,9 @@ export const myDynamicPlugin: Plugin = {
 
 ```typescript
 // In your code
-const pluginManager = runtime.getService('PLUGIN_MANAGER') as PluginManagerService;
+const pluginManager = runtime.getService(
+  "PLUGIN_MANAGER",
+) as PluginManagerService;
 const pluginId = await pluginManager.registerPlugin(myDynamicPlugin);
 ```
 
@@ -188,16 +190,16 @@ interface PluginState {
 
 ```typescript
 const pluginWithEnvVars: Plugin = {
-  name: 'api-plugin',
-  description: 'Plugin that requires API keys',
+  name: "api-plugin",
+  description: "Plugin that requires API keys",
 
   init: async (config, runtime) => {
-    const requiredVars = ['API_KEY', 'API_SECRET'];
+    const requiredVars = ["API_KEY", "API_SECRET"];
     const missing = requiredVars.filter((v) => !runtime.getSetting(v));
 
     if (missing.length > 0) {
       // Plugin manager will track these missing variables
-      throw new Error(`Missing environment variables: ${missing.join(', ')}`);
+      throw new Error(`Missing environment variables: ${missing.join(", ")}`);
     }
   },
 
@@ -209,7 +211,7 @@ const pluginWithEnvVars: Plugin = {
 
 ```typescript
 class MyService extends Service {
-  static serviceType = 'MY_SERVICE' as ServiceTypeName;
+  static serviceType = "MY_SERVICE" as ServiceTypeName;
 
   static async start(runtime: IAgentRuntime): Promise<Service> {
     return new MyService(runtime);
@@ -221,7 +223,7 @@ class MyService extends Service {
 }
 
 const pluginWithService: Plugin = {
-  name: 'service-plugin',
+  name: "service-plugin",
   services: [MyService],
   // ... rest of plugin
 };

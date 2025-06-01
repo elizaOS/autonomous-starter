@@ -37,7 +37,7 @@ Screen Capture → Pixel Difference Analysis → Decision Branch
             Significant Change                           No Significant Change
                     ↓                                           ↓
         ┌─ AI Description Analysis                    ┌─ Use Cached Description
-        ├─ Object Detection                          ├─ Use Cached Objects  
+        ├─ Object Detection                          ├─ Use Cached Objects
         └─ Update History                            └─ Skip AI Processing
                     ↓                                           ↓
                     └─────────────────┬─────────────────────────┘
@@ -174,10 +174,10 @@ const config = {
 // Get current screen context
 const context = await robotService.getContext();
 
-console.log('Current description:', context.currentDescription);
-console.log('OCR text:', context.ocr);
-console.log('Change detected:', context.changeDetected);
-console.log('History entries:', context.descriptionHistory.length);
+console.log("Current description:", context.currentDescription);
+console.log("OCR text:", context.ocr);
+console.log("Change detected:", context.changeDetected);
+console.log("History entries:", context.descriptionHistory.length);
 ```
 
 ### Conditional Processing
@@ -186,10 +186,10 @@ console.log('History entries:', context.descriptionHistory.length);
 const context = await robotService.getContext();
 
 if (context.changeDetected) {
-  console.log('Screen changed significantly - fresh AI analysis performed');
+  console.log("Screen changed significantly - fresh AI analysis performed");
   console.log(`Pixel difference: ${context.pixelDifferencePercentage}%`);
 } else {
-  console.log('Using cached analysis - saving API costs');
+  console.log("Using cached analysis - saving API costs");
 }
 ```
 
@@ -228,6 +228,7 @@ context.descriptionHistory.forEach((entry, index) => {
 ### Tesseract.js Issues
 
 1. **Slow OCR Performance**
+
    ```typescript
    // Tesseract.js is initializing - first run may be slower
    // Subsequent runs will be much faster
@@ -242,11 +243,13 @@ context.descriptionHistory.forEach((entry, index) => {
 ### Change Detection Issues
 
 1. **Too Sensitive (frequent AI calls)**
+
    ```typescript
    robotService.setChangeDetectionThreshold(90); // Increase threshold
    ```
 
 2. **Not Sensitive Enough (missing changes)**
+
    ```typescript
    robotService.setChangeDetectionThreshold(60); // Decrease threshold
    ```

@@ -1,14 +1,14 @@
 // Extend the core service types with robot service
-declare module '@elizaos/core' {
-    interface ServiceTypeRegistry {
-        ROBOT: 'ROBOT';
-    }
+declare module "@elizaos/core" {
+  interface ServiceTypeRegistry {
+    ROBOT: "ROBOT";
+  }
 }
 
 // Export service type constant
 export const RobotServiceType = {
-    ROBOT: 'ROBOT' as const,
-} satisfies Partial<import('@elizaos/core').ServiceTypeRegistry>;
+  ROBOT: "ROBOT" as const,
+} satisfies Partial<import("@elizaos/core").ServiceTypeRegistry>;
 
 export interface ScreenObject {
   label: string;
@@ -16,11 +16,11 @@ export interface ScreenObject {
 }
 
 export interface ScreenActionStep {
-  action: 'move' | 'click' | 'type';
+  action: "move" | "click" | "type";
   x?: number;
   y?: number;
   text?: string;
-  button?: 'left' | 'right' | 'middle';
+  button?: "left" | "right" | "middle";
 }
 
 export interface ScreenDescription {
@@ -49,4 +49,4 @@ export interface RobotServiceConfig {
   cacheTTL: number;
   changeDetection: ChangeDetectionConfig;
   maxHistoryEntries: number;
-} 
+}

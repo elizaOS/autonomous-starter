@@ -1,11 +1,22 @@
-export function detectDomain(text: string, defaultDomain: string = 'general'): string {
+export function detectDomain(
+  text: string,
+  defaultDomain: string = "general",
+): string {
   const domains = {
-    shell: ['command', 'terminal', 'bash', 'shell', 'execute', 'script', 'cli'],
-    coding: ['code', 'function', 'variable', 'syntax', 'programming', 'debug', 'compile'],
-    system: ['file', 'directory', 'process', 'memory', 'cpu', 'system', 'disk'],
-    network: ['http', 'api', 'request', 'response', 'url', 'network', 'server'],
-    data: ['json', 'csv', 'database', 'query', 'data', 'table', 'record'],
-    plugin: ['plugin', 'load', 'unload', 'register', 'module', 'extension'],
+    shell: ["command", "terminal", "bash", "shell", "execute", "script", "cli"],
+    coding: [
+      "code",
+      "function",
+      "variable",
+      "syntax",
+      "programming",
+      "debug",
+      "compile",
+    ],
+    system: ["file", "directory", "process", "memory", "cpu", "system", "disk"],
+    network: ["http", "api", "request", "response", "url", "network", "server"],
+    data: ["json", "csv", "database", "query", "data", "table", "record"],
+    plugin: ["plugin", "load", "unload", "register", "module", "extension"],
   };
 
   const lowerText = text.toLowerCase();

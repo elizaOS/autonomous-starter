@@ -1,11 +1,18 @@
 export interface EnvVarConfig {
   value?: string;
-  type: 'api_key' | 'private_key' | 'public_key' | 'url' | 'credential' | 'config' | 'secret';
+  type:
+    | "api_key"
+    | "private_key"
+    | "public_key"
+    | "url"
+    | "credential"
+    | "config"
+    | "secret";
   required: boolean;
   description: string;
   canGenerate: boolean;
   validationMethod?: string;
-  status: 'missing' | 'generating' | 'validating' | 'invalid' | 'valid';
+  status: "missing" | "generating" | "validating" | "invalid" | "valid";
   lastError?: string;
   attempts: number;
   createdAt?: number;
@@ -27,7 +34,7 @@ export interface GenerationScript {
   attempts: number;
   output?: string;
   error?: string;
-  status: 'pending' | 'running' | 'success' | 'failed';
+  status: "pending" | "running" | "success" | "failed";
   createdAt: number;
 }
 

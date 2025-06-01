@@ -7,7 +7,7 @@ import {
   type MessagePayload,
   type ServiceTypeName,
   type Task,
-} from '@elizaos/core';
+} from "@elizaos/core";
 
 /**
  * The Todo Reminder Service checks for overdue tasks and sends reminders to users.
@@ -17,8 +17,8 @@ export class TodoReminderService extends Service {
   private readonly CHECK_INTERVAL = 60 * 60 * 1000; // Check every hour (in milliseconds)
   private readonly REMINDER_COOLDOWN = 24 * 60 * 60 * 1000; // Remind once per day (in milliseconds)
 
-  static serviceType: ServiceTypeName = 'TODO_REMINDER' as ServiceTypeName;
-  capabilityDescription = 'The agent can send reminders for overdue tasks';
+  static serviceType: ServiceTypeName = "TODO_REMINDER" as ServiceTypeName;
+  capabilityDescription = "The agent can send reminders for overdue tasks";
 
   /**
    * Start the TodoReminderService with the given runtime.
@@ -43,11 +43,15 @@ export class TodoReminderService extends Service {
       try {
         await this.checkOverdueTasks();
       } catch (error) {
-        logger.error('Error checking overdue tasks:', error);
+        logger.error("Error checking overdue tasks:", error);
       }
     }, this.CHECK_INTERVAL) as unknown as NodeJS.Timeout;
 
-    logger.info('TodoReminderService timer started with interval: ' + this.CHECK_INTERVAL + 'ms');
+    logger.info(
+      "TodoReminderService timer started with interval: " +
+        this.CHECK_INTERVAL +
+        "ms",
+    );
   }
 
   /**
@@ -55,15 +59,15 @@ export class TodoReminderService extends Service {
    */
   private async checkOverdueTasks() {
     try {
-      logger.debug('Checking for overdue tasks...');
+      logger.debug("Checking for overdue tasks...");
 
       // Get all tasks with "one-off" tag (not recurring) that have due dates
       const tasks = await this.runtime.getTasks({
-        tags: ['one-off'],
+        tags: ["one-off"],
       });
 
       if (!tasks || tasks.length === 0) {
-        logger.debug('No one-off tasks found to check.');
+        logger.debug("No one-off tasks found to check.");
         return;
       }
 
@@ -75,12 +79,12 @@ export class TodoReminderService extends Service {
         // Skip tasks without due date metadata or with invalid type
         if (
           !task.metadata?.dueDate ||
-          !['string', 'number'].includes(typeof task.metadata.dueDate)
+          !["string", "number"].includes(typeof task.metadata.dueDate)
         ) {
           if (task.metadata?.dueDate) {
             // Log if dueDate exists but is wrong type
             logger.warn(
-              `Task ${task.id} has invalid dueDate type: ${typeof task.metadata.dueDate}`
+              `Task ${task.id} has invalid dueDate type: ${typeof task.metadata.dueDate}`,
             );
           }
           continue;
@@ -92,12 +96,15 @@ export class TodoReminderService extends Service {
           dueDate = new Date(task.metadata.dueDate as string | number);
           if (isNaN(dueDate.getTime())) {
             logger.warn(
-              `Task ${task.id} has invalid date value in dueDate: ${task.metadata.dueDate}`
+              `Task ${task.id} has invalid date value in dueDate: ${task.metadata.dueDate}`,
             );
             continue; // Skip if date parsing failed
           }
         } catch (e) {
-          logger.warn(`Task ${task.id} failed to parse dueDate: ${task.metadata.dueDate}`, e);
+          logger.warn(
+            `Task ${task.id} failed to parse dueDate: ${task.metadata.dueDate}`,
+            e,
+          );
           continue;
         }
 
@@ -108,21 +115,23 @@ export class TodoReminderService extends Service {
           let lastReminderSentTime = 0;
           if (
             task.metadata?.lastReminderSent &&
-            ['string', 'number'].includes(typeof task.metadata.lastReminderSent)
+            ["string", "number"].includes(typeof task.metadata.lastReminderSent)
           ) {
             try {
-              const lastReminderDate = new Date(task.metadata.lastReminderSent as string | number);
+              const lastReminderDate = new Date(
+                task.metadata.lastReminderSent as string | number,
+              );
               if (!isNaN(lastReminderDate.getTime())) {
                 lastReminderSentTime = lastReminderDate.getTime();
               } else {
                 logger.warn(
-                  `Task ${task.id} has invalid date value in lastReminderSent: ${task.metadata.lastReminderSent}`
+                  `Task ${task.id} has invalid date value in lastReminderSent: ${task.metadata.lastReminderSent}`,
                 );
               }
             } catch (e) {
               logger.warn(
                 `Task ${task.id} failed to parse lastReminderSent: ${task.metadata.lastReminderSent}`,
-                e
+                e,
               );
             }
           }
@@ -144,10 +153,10 @@ export class TodoReminderService extends Service {
       }
 
       logger.info(
-        `Overdue task check completed. Found ${overdueCount} overdue tasks, sent ${remindersSent} reminders.`
+        `Overdue task check completed. Found ${overdueCount} overdue tasks, sent ${remindersSent} reminders.`,
       );
     } catch (error) {
-      logger.error('Error in checkOverdueTasks:', error);
+      logger.error("Error in checkOverdueTasks:", error);
     }
   }
 
@@ -157,7 +166,9 @@ export class TodoReminderService extends Service {
   private async sendReminder(task: Task) {
     try {
       if (!task.roomId) {
-        logger.error(`Cannot send reminder for task ${task.id} - no roomId specified`);
+        logger.error(
+          `Cannot send reminder for task ${task.id} - no roomId specified`,
+        );
         return;
       }
 
@@ -166,21 +177,26 @@ export class TodoReminderService extends Service {
         // Safely get the dueDate string, ensuring it's valid
         if (
           !task.metadata?.dueDate ||
-          !['string', 'number'].includes(typeof task.metadata.dueDate)
+          !["string", "number"].includes(typeof task.metadata.dueDate)
         ) {
-          logger.error(`Cannot create reminder for task ${task.id} - invalid or missing dueDate.`);
+          logger.error(
+            `Cannot create reminder for task ${task.id} - invalid or missing dueDate.`,
+          );
           return;
         }
         const dueDateObj = new Date(task.metadata.dueDate as string | number);
         if (isNaN(dueDateObj.getTime())) {
           logger.error(
-            `Cannot create reminder for task ${task.id} - invalid date value in dueDate.`
+            `Cannot create reminder for task ${task.id} - invalid date value in dueDate.`,
           );
           return;
         }
         dueDateString = dueDateObj.toLocaleDateString();
       } catch (e) {
-        logger.error(`Cannot create reminder for task ${task.id} - failed to parse dueDate.`, e);
+        logger.error(
+          `Cannot create reminder for task ${task.id} - failed to parse dueDate.`,
+          e,
+        );
         return;
       }
 
@@ -210,7 +226,7 @@ export class TodoReminderService extends Service {
       // Emit a MESSAGE_RECEIVED event to inject the reminder into the room's flow
       await this.runtime.emitEvent(EventType.MESSAGE_RECEIVED, payload);
       logger.debug(
-        `Emitted reminder event for task: ${task.name} (${task.id}) to room ${task.roomId}`
+        `Emitted reminder event for task: ${task.name} (${task.id}) to room ${task.roomId}`,
       );
     } catch (error) {
       logger.error(`Failed to send reminder for task ${task.id}:`, error);
@@ -221,7 +237,7 @@ export class TodoReminderService extends Service {
    * Immediately check for overdue tasks (can be triggered programmatically)
    */
   async checkTasksNow() {
-    logger.debug('Manually triggered overdue task check');
+    logger.debug("Manually triggered overdue task check");
     await this.checkOverdueTasks();
   }
 
@@ -232,7 +248,7 @@ export class TodoReminderService extends Service {
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;
-      logger.info('TodoReminderService timer stopped');
+      logger.info("TodoReminderService timer stopped");
     }
   }
 

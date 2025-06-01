@@ -1,4 +1,4 @@
-import type { IAgentRuntime, Memory, Provider } from '@elizaos/core';
+import type { IAgentRuntime, Memory, Provider } from "@elizaos/core";
 
 /**
  * Time provider function that retrieves the current date and time in UTC
@@ -14,17 +14,19 @@ import type { IAgentRuntime, Memory, Provider } from '@elizaos/core';
  * @type {Provider}
  */
 export const timeProvider: Provider = {
-  name: 'TIME',
+  name: "TIME",
   get: async (_runtime: IAgentRuntime, _message: Memory) => {
     const currentDate = new Date();
 
     // Get UTC time since bots will be communicating with users around the global
     const options = {
-      timeZone: 'UTC',
-      dateStyle: 'full' as const,
-      timeStyle: 'long' as const,
+      timeZone: "UTC",
+      dateStyle: "full" as const,
+      timeStyle: "long" as const,
     };
-    const humanReadable = new Intl.DateTimeFormat('en-US', options).format(currentDate);
+    const humanReadable = new Intl.DateTimeFormat("en-US", options).format(
+      currentDate,
+    );
     return {
       data: {
         time: currentDate,

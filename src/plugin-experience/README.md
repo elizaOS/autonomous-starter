@@ -73,12 +73,12 @@ The Experience Plugin enables autonomous agents to learn from their experiences,
 await experienceService.recordExperience({
   type: ExperienceType.SUCCESS,
   outcome: OutcomeType.POSITIVE,
-  context: 'File system operation',
-  action: 'create_directory',
-  result: 'Directory created successfully',
-  learning: 'mkdir command works reliably for directory creation',
-  domain: 'shell',
-  tags: ['filesystem', 'mkdir'],
+  context: "File system operation",
+  action: "create_directory",
+  result: "Directory created successfully",
+  learning: "mkdir command works reliably for directory creation",
+  domain: "shell",
+  tags: ["filesystem", "mkdir"],
   confidence: 0.9,
   importance: 0.7,
 });
@@ -87,16 +87,17 @@ await experienceService.recordExperience({
 await experienceService.recordExperience({
   type: ExperienceType.CORRECTION,
   outcome: OutcomeType.POSITIVE,
-  context: 'Python script execution',
-  action: 'run_script',
-  result: 'Script ran after installing dependencies',
-  learning: 'Always check and install required dependencies before running scripts',
-  domain: 'coding',
-  tags: ['python', 'dependencies'],
+  context: "Python script execution",
+  action: "run_script",
+  result: "Script ran after installing dependencies",
+  learning:
+    "Always check and install required dependencies before running scripts",
+  domain: "coding",
+  tags: ["python", "dependencies"],
   confidence: 0.8,
   importance: 0.9,
-  previousBelief: 'Script should run without additional setup',
-  correctedBelief: 'Scripts often require dependency installation',
+  previousBelief: "Script should run without additional setup",
+  correctedBelief: "Scripts often require dependency installation",
 });
 ```
 
@@ -106,7 +107,7 @@ await experienceService.recordExperience({
 // Query by type and domain
 const shellFailures = await experienceService.queryExperiences({
   type: ExperienceType.FAILURE,
-  domain: 'shell',
+  domain: "shell",
   minConfidence: 0.7,
 });
 
@@ -122,7 +123,7 @@ const recentSuccesses = await experienceService.queryExperiences({
 
 // Query by tags
 const codingExperiences = await experienceService.queryExperiences({
-  tags: ['python', 'debugging'],
+  tags: ["python", "debugging"],
   minImportance: 0.6,
 });
 ```
@@ -132,8 +133,8 @@ const codingExperiences = await experienceService.queryExperiences({
 ```typescript
 // Find similar experiences using natural language
 const similar = await experienceService.findSimilarExperiences(
-  'file permission errors when accessing system directories',
-  5
+  "file permission errors when accessing system directories",
+  5,
 );
 
 // Results are ranked by semantic similarity
@@ -146,13 +147,13 @@ similar.forEach((exp) => {
 
 ```typescript
 // Analyze experiences for a specific domain
-const analysis = await experienceService.analyzeExperiences('shell');
+const analysis = await experienceService.analyzeExperiences("shell");
 
 console.log(`Frequency: ${analysis.frequency}`);
 console.log(`Reliability: ${analysis.reliability}`);
 console.log(`Pattern: ${analysis.pattern}`);
-console.log(`Recommendations: ${analysis.recommendations?.join(', ')}`);
-console.log(`Alternatives: ${analysis.alternatives?.join(', ')}`);
+console.log(`Recommendations: ${analysis.recommendations?.join(", ")}`);
+console.log(`Alternatives: ${analysis.alternatives?.join(", ")}`);
 ```
 
 ### Using Actions
@@ -164,23 +165,23 @@ await recordExperienceAction.handler(runtime, message, {
   outcome: OutcomeType.POSITIVE,
   confidence: 0.8,
   importance: 0.7,
-  domain: 'system',
-  tags: ['tools', 'discovery'],
+  domain: "system",
+  tags: ["tools", "discovery"],
 });
 
 // Query experiences via action
 const result = await queryExperiencesAction.handler(runtime, message, {
   type: ExperienceType.SUCCESS,
-  domain: 'coding',
+  domain: "coding",
   minConfidence: 0.8,
   limit: 5,
 });
 
 // Analyze outcome via action
 await analyzeOutcomeAction.handler(runtime, message, {
-  action: 'compile_code',
+  action: "compile_code",
   success: true,
-  expectation: 'clean compilation',
+  expectation: "clean compilation",
 });
 ```
 
@@ -242,7 +243,7 @@ The experience plugin integrates with the knowledge plugin for persistent storag
 ```typescript
 // Experiences are automatically stored in the knowledge base
 // and can be retrieved across agent restarts
-const knowledgeService = runtime.getService('KNOWLEDGE');
+const knowledgeService = runtime.getService("KNOWLEDGE");
 // Experience data is stored with semantic embeddings for retrieval
 ```
 
@@ -327,21 +328,21 @@ Tests use comprehensive mocking:
 
 ```typescript
 // Enable debug logging
-process.env.DEBUG = 'experience:*';
+process.env.DEBUG = "experience:*";
 
 // Check service status
-const service = runtime.getService('EXPERIENCE');
-console.log('Service available:', !!service);
+const service = runtime.getService("EXPERIENCE");
+console.log("Service available:", !!service);
 
 // Verify experience count
 const allExperiences = await service.queryExperiences({ limit: 1000 });
-console.log('Total experiences:', allExperiences.length);
+console.log("Total experiences:", allExperiences.length);
 
 // Check embedding generation
-const testEmbedding = await runtime.useModel('TEXT_EMBEDDING', {
-  prompt: 'test embedding generation',
+const testEmbedding = await runtime.useModel("TEXT_EMBEDDING", {
+  prompt: "test embedding generation",
 });
-console.log('Embedding generated:', !!testEmbedding);
+console.log("Embedding generated:", !!testEmbedding);
 ```
 
 ## Future Enhancements

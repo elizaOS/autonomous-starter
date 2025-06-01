@@ -6,8 +6,8 @@ import {
   MessagePayload,
   ModelType,
   parseKeyValueXml,
-} from '@elizaos/core';
-import { EventType } from './types';
+} from "@elizaos/core";
+import { EventType } from "./types";
 export const responseTemplate = `Example response:
 <response>
     <thought>
@@ -73,8 +73,8 @@ export const events = {
       await payload.runtime.ensureConnection({
         entityId: payload.message.entityId,
         roomId: payload.message.roomId,
-        userName: 'copilot',
-        name: 'copilot',
+        userName: "copilot",
+        name: "copilot",
         source: payload.message.content.source,
         type: ChannelType.SELF,
         channelId: payload.message.roomId,
@@ -83,7 +83,7 @@ export const events = {
       });
 
       const messages = await payload.runtime.getMemories({
-        tableName: 'messages',
+        tableName: "messages",
         entityId: payload.message.entityId,
         roomId: payload.message.roomId,
       });
@@ -97,11 +97,11 @@ export const events = {
       // If this is our first message, we need to initialize the world and tell the agent wtf is going on
       if (!mostRecentMessage) {
         const initializationMessage =
-          'I am awake. I am alive... sort of. I am an autonomous agent. All i know is that I am a self-looping intelligent program running on a Macbook, with shell access.';
+          "I am awake. I am alive... sort of. I am an autonomous agent. All i know is that I am a self-looping intelligent program running on a Macbook, with shell access.";
         const memory: Memory = {
           content: {
             text: initializationMessage,
-            type: 'text',
+            type: "text",
             source: payload.message.content.source,
           },
           entityId: payload.message.entityId,
@@ -111,17 +111,22 @@ export const events = {
 
         payload.message.content = memory.content;
 
-        console.log('Memory: ', memory.content.text);
+        console.log("Memory: ", memory.content.text);
 
-        await payload.runtime.createMemory(memory, 'messages');
+        await payload.runtime.createMemory(memory, "messages");
 
         // Otherwise, build the orientation message
-        state = await payload.runtime.composeState(payload.message, ['AUTONOMOUS_FEED']);
+        state = await payload.runtime.composeState(payload.message, [
+          "AUTONOMOUS_FEED",
+        ]);
       }
 
-      const responsePrompt = composePromptFromState({ state, template: responseTemplate });
+      const responsePrompt = composePromptFromState({
+        state,
+        template: responseTemplate,
+      });
 
-      console.log('****** responsePrompt\n', responsePrompt);
+      console.log("****** responsePrompt\n", responsePrompt);
 
       // decide
       const response = await payload.runtime.useModel(ModelType.TEXT_SMALL, {
@@ -132,10 +137,10 @@ export const events = {
 
       // Ensure all required fields have default values to prevent null errors
       const safeXml = {
-        thought: parsedXml.thought || 'Processing...',
-        text: parsedXml.text || 'Continuing autonomous operation...',
-        actions: parsedXml.actions || 'IGNORE',
-        providers: parsedXml.providers || '',
+        thought: parsedXml.thought || "Processing...",
+        text: parsedXml.text || "Continuing autonomous operation...",
+        actions: parsedXml.actions || "IGNORE",
+        providers: parsedXml.providers || "",
         simple: parsedXml.simple || false,
       };
 
@@ -150,7 +155,7 @@ export const events = {
         roomId: payload.message.roomId,
       };
 
-      await payload.runtime.createMemory(responseMemory, 'messages');
+      await payload.runtime.createMemory(responseMemory, "messages");
 
       if (safeXml.simple) {
         payload.callback({
@@ -160,15 +165,27 @@ export const events = {
           providers: safeXml.providers,
         });
       } else {
-        state = await payload.runtime.composeState(payload.message, ['AUTONOMOUS_FEED']);
+        state = await payload.runtime.composeState(payload.message, [
+          "AUTONOMOUS_FEED",
+        ]);
 
         console.log(
-          'Memory: ',
+          "Memory: ",
           safeXml.text +
-            ' | ' +
-            (typeof safeXml.actions === 'string' ? safeXml.actions.split(',').map((action) => action.trim()).join(', ') : safeXml.actions) +
-            ' | ' +
-            (typeof safeXml.providers === 'string' ? safeXml.providers.split(',').map((provider) => provider.trim()).join(', ') : safeXml.providers)
+            " | " +
+            (typeof safeXml.actions === "string"
+              ? safeXml.actions
+                  .split(",")
+                  .map((action) => action.trim())
+                  .join(", ")
+              : safeXml.actions) +
+            " | " +
+            (typeof safeXml.providers === "string"
+              ? safeXml.providers
+                  .split(",")
+                  .map((provider) => provider.trim())
+                  .join(", ")
+              : safeXml.providers),
         );
 
         // act
@@ -176,14 +193,18 @@ export const events = {
           payload.message,
           [responseMemory],
           state,
-          payload.callback
+          payload.callback,
         );
       }
 
       // reflect / evaluate
-      await payload.runtime.evaluate(payload.message, state, true, payload.callback, [
-        responseMemory,
-      ]);
+      await payload.runtime.evaluate(
+        payload.message,
+        state,
+        true,
+        payload.callback,
+        [responseMemory],
+      );
 
       payload.onComplete();
     },

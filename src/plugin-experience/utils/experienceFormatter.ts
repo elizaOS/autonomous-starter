@@ -1,4 +1,4 @@
-import { Experience, ExperienceType, OutcomeType } from '../types.js';
+import { Experience, ExperienceType, OutcomeType } from "../types.js";
 
 export function formatExperienceForDisplay(experience: Experience): string {
   const typeEmoji = getTypeEmoji(experience.type);
@@ -10,7 +10,7 @@ Learning: ${experience.learning}
 Confidence: ${Math.round(experience.confidence * 100)}%
 Importance: ${Math.round(experience.importance * 100)}%
 Domain: ${experience.domain}
-Tags: ${experience.tags.join(', ')}`;
+Tags: ${experience.tags.join(", ")}`;
 }
 
 export function formatExperienceSummary(experience: Experience): string {
@@ -20,12 +20,12 @@ export function formatExperienceSummary(experience: Experience): string {
 
 export function formatExperienceList(experiences: Experience[]): string {
   if (experiences.length === 0) {
-    return 'No experiences found.';
+    return "No experiences found.";
   }
 
   return experiences
     .map((exp, index) => `${index + 1}. ${formatExperienceSummary(exp)}`)
-    .join('\n');
+    .join("\n");
 }
 
 export function formatPatternSummary(pattern: {
@@ -35,15 +35,17 @@ export function formatPatternSummary(pattern: {
 }): string {
   const significanceEmoji =
     {
-      high: '🔴',
-      medium: '🟡',
-      low: '🟢',
-    }[pattern.significance] || '⚪';
+      high: "🔴",
+      medium: "🟡",
+      low: "🟢",
+    }[pattern.significance] || "⚪";
 
   return `${significanceEmoji} ${pattern.description} (observed ${pattern.frequency} times)`;
 }
 
-export function groupExperiencesByDomain(experiences: Experience[]): Map<string, Experience[]> {
+export function groupExperiencesByDomain(
+  experiences: Experience[],
+): Map<string, Experience[]> {
   const groups = new Map<string, Experience[]>();
 
   experiences.forEach((exp) => {
@@ -83,20 +85,30 @@ export function getExperienceStats(experiences: Experience[]): {
 
   // Count by outcome
   Object.values(OutcomeType).forEach((outcome) => {
-    stats.byOutcome[outcome] = experiences.filter((e) => e.outcome === outcome).length;
+    stats.byOutcome[outcome] = experiences.filter(
+      (e) => e.outcome === outcome,
+    ).length;
   });
 
   // Count by domain
   const domains = [...new Set(experiences.map((e) => e.domain))];
   domains.forEach((domain) => {
-    stats.byDomain[domain] = experiences.filter((e) => e.domain === domain).length;
+    stats.byDomain[domain] = experiences.filter(
+      (e) => e.domain === domain,
+    ).length;
   });
 
   // Calculate averages
-  const totalConfidence = experiences.reduce((sum, exp) => sum + exp.confidence, 0);
+  const totalConfidence = experiences.reduce(
+    (sum, exp) => sum + exp.confidence,
+    0,
+  );
   stats.averageConfidence = totalConfidence / experiences.length;
 
-  const totalImportance = experiences.reduce((sum, exp) => sum + exp.importance, 0);
+  const totalImportance = experiences.reduce(
+    (sum, exp) => sum + exp.importance,
+    0,
+  );
   stats.averageImportance = totalImportance / experiences.length;
 
   // Calculate success rate
@@ -110,17 +122,17 @@ export function getExperienceStats(experiences: Experience[]): {
 
 function getTypeEmoji(type: ExperienceType): string {
   const emojiMap = {
-    [ExperienceType.SUCCESS]: '✅',
-    [ExperienceType.FAILURE]: '❌',
-    [ExperienceType.DISCOVERY]: '💡',
-    [ExperienceType.CORRECTION]: '🔄',
-    [ExperienceType.LEARNING]: '📚',
-    [ExperienceType.HYPOTHESIS]: '🤔',
-    [ExperienceType.VALIDATION]: '✔️',
-    [ExperienceType.WARNING]: '⚠️',
+    [ExperienceType.SUCCESS]: "✅",
+    [ExperienceType.FAILURE]: "❌",
+    [ExperienceType.DISCOVERY]: "💡",
+    [ExperienceType.CORRECTION]: "🔄",
+    [ExperienceType.LEARNING]: "📚",
+    [ExperienceType.HYPOTHESIS]: "🤔",
+    [ExperienceType.VALIDATION]: "✔️",
+    [ExperienceType.WARNING]: "⚠️",
   };
 
-  return emojiMap[type] || '📝';
+  return emojiMap[type] || "📝";
 }
 
 export function formatExperienceForRAG(experience: Experience): string {
@@ -135,7 +147,7 @@ export function formatExperienceForRAG(experience: Experience): string {
     `Learning: ${experience.learning}`,
     `Confidence: ${experience.confidence}`,
     `Importance: ${experience.importance}`,
-    `Tags: ${experience.tags.join(', ')}`,
+    `Tags: ${experience.tags.join(", ")}`,
   ];
 
   if (experience.previousBelief) {
@@ -146,7 +158,7 @@ export function formatExperienceForRAG(experience: Experience): string {
     parts.push(`Corrected Belief: ${experience.correctedBelief}`);
   }
 
-  return parts.join('\n');
+  return parts.join("\n");
 }
 
 export function extractKeywords(experience: Experience): string[] {
@@ -164,7 +176,9 @@ export function extractKeywords(experience: Experience): string[] {
   learningWords.forEach((word) => keywords.add(word));
 
   // Add action name parts
-  const actionParts = experience.action.split(/[_\-\s]+/).filter((part) => part.length > 2);
+  const actionParts = experience.action
+    .split(/[_\-\s]+/)
+    .filter((part) => part.length > 2);
 
   actionParts.forEach((part) => keywords.add(part.toLowerCase()));
 

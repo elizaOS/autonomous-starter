@@ -11,7 +11,7 @@ import {
   type State,
   type Task,
   type UUID,
-} from '@elizaos/core';
+} from "@elizaos/core";
 
 // Interface for task selection properties
 interface TaskSelection {
@@ -27,7 +27,7 @@ interface TaskUpdate {
   priority?: 1 | 2 | 3 | 4;
   urgent?: boolean;
   dueDate?: string | null;
-  recurring?: 'daily' | 'weekly' | 'monthly';
+  recurring?: "daily" | "weekly" | "monthly";
 }
 
 /**
@@ -109,15 +109,15 @@ Return an XML object with these potential fields (only include fields that shoul
 async function extractTaskSelection(
   runtime: IAgentRuntime,
   message: Memory,
-  availableTasks: Task[]
+  availableTasks: Task[],
 ): Promise<TaskSelection> {
   try {
     // Format available tasks for the prompt
     const tasksText = availableTasks
       .map((task) => {
-        return `ID: ${task.id}\nName: ${task.name}\nDescription: ${task.description || task.name}\nTags: ${task.tags?.join(', ') || 'none'}\n`;
+        return `ID: ${task.id}\nName: ${task.name}\nDescription: ${task.description || task.name}\nTags: ${task.tags?.join(", ") || "none"}\n`;
       })
-      .join('\n---\n');
+      .join("\n---\n");
 
     const prompt = composePrompt({
       state: {
@@ -135,22 +135,23 @@ async function extractTaskSelection(
     // Parse XML from the text results
     const parsedResult = parseKeyValueXml(result) as TaskSelection | null;
 
-    if (!parsedResult || typeof parsedResult.isFound === 'undefined') {
-      logger.error('Failed to parse valid task selection information from XML');
-      return { taskId: '', taskName: '', isFound: false };
+    if (!parsedResult || typeof parsedResult.isFound === "undefined") {
+      logger.error("Failed to parse valid task selection information from XML");
+      return { taskId: "", taskName: "", isFound: false };
     }
 
     // Convert string 'true'/'false' to boolean and handle 'null' strings
     const finalResult: TaskSelection = {
-      taskId: parsedResult.taskId === 'null' ? '' : parsedResult.taskId || '',
-      taskName: parsedResult.taskName === 'null' ? '' : parsedResult.taskName || '',
-      isFound: String(parsedResult.isFound).toLowerCase() === 'true',
+      taskId: parsedResult.taskId === "null" ? "" : parsedResult.taskId || "",
+      taskName:
+        parsedResult.taskName === "null" ? "" : parsedResult.taskName || "",
+      isFound: String(parsedResult.isFound).toLowerCase() === "true",
     };
 
     return finalResult;
   } catch (error) {
-    logger.error('Error extracting task selection information:', error);
-    return { taskId: '', taskName: '', isFound: false };
+    logger.error("Error extracting task selection information:", error);
+    return { taskId: "", taskName: "", isFound: false };
   }
 }
 
@@ -160,7 +161,7 @@ async function extractTaskSelection(
 async function extractTaskUpdate(
   runtime: IAgentRuntime,
   message: Memory,
-  task: Task
+  task: Task,
 ): Promise<TaskUpdate | null> {
   try {
     // Format task details for the prompt
@@ -168,28 +169,30 @@ async function extractTaskUpdate(
     if (task.description) taskDetails += `Description: ${task.description}\n`;
 
     // Add task type
-    if (task.tags?.includes('daily')) {
+    if (task.tags?.includes("daily")) {
       taskDetails += `Type: daily\n`;
-      const recurringTag = task.tags.find((tag) => tag.startsWith('recurring-'));
+      const recurringTag = task.tags.find((tag) =>
+        tag.startsWith("recurring-"),
+      );
       if (recurringTag) {
-        const recurring = recurringTag.split('-')[1];
+        const recurring = recurringTag.split("-")[1];
         taskDetails += `Recurring: ${recurring}\n`;
       }
       const streak = task.metadata?.streak || 0;
       taskDetails += `Current streak: ${streak}\n`;
-    } else if (task.tags?.includes('one-off')) {
+    } else if (task.tags?.includes("one-off")) {
       taskDetails += `Type: one-off\n`;
-      const priorityTag = task.tags.find((tag) => tag.startsWith('priority-'));
+      const priorityTag = task.tags.find((tag) => tag.startsWith("priority-"));
       if (priorityTag) {
-        const priority = priorityTag.split('-')[1];
+        const priority = priorityTag.split("-")[1];
         taskDetails += `Priority: ${priority}\n`;
       }
-      taskDetails += `Urgent: ${task.tags.includes('urgent') ? 'Yes' : 'No'}\n`;
+      taskDetails += `Urgent: ${task.tags.includes("urgent") ? "Yes" : "No"}\n`;
       if (task.metadata?.dueDate) {
         const dueDate = new Date(String(task.metadata.dueDate));
-        taskDetails += `Due date: ${dueDate.toISOString().split('T')[0]}\n`;
+        taskDetails += `Due date: ${dueDate.toISOString().split("T")[0]}\n`;
       }
-    } else if (task.tags?.includes('aspirational')) {
+    } else if (task.tags?.includes("aspirational")) {
       taskDetails += `Type: aspirational goal\n`;
     }
 
@@ -211,7 +214,7 @@ async function extractTaskUpdate(
 
     // Validate the parsed update has at least one property
     if (!parsedUpdate || Object.keys(parsedUpdate).length === 0) {
-      logger.error('Failed to extract valid task update information from XML');
+      logger.error("Failed to extract valid task update information from XML");
       return null;
     }
 
@@ -226,8 +229,8 @@ async function extractTaskUpdate(
       }
     }
     if (finalUpdate.urgent !== undefined)
-      finalUpdate.urgent = String(finalUpdate.urgent).toLowerCase() === 'true';
-    if (finalUpdate.dueDate === 'null')
+      finalUpdate.urgent = String(finalUpdate.urgent).toLowerCase() === "true";
+    if (finalUpdate.dueDate === "null")
       finalUpdate.dueDate = null; // Handle 'null' string for dueDate
     else if (finalUpdate.dueDate === undefined)
       delete finalUpdate.dueDate; // Ensure undefined doesn't become empty string
@@ -235,8 +238,8 @@ async function extractTaskUpdate(
 
     if (finalUpdate.recurring) {
       const recurringVal = String(finalUpdate.recurring).toLowerCase();
-      if (['daily', 'weekly', 'monthly'].includes(recurringVal)) {
-        finalUpdate.recurring = recurringVal as 'daily' | 'weekly' | 'monthly';
+      if (["daily", "weekly", "monthly"].includes(recurringVal)) {
+        finalUpdate.recurring = recurringVal as "daily" | "weekly" | "monthly";
       } else {
         delete finalUpdate.recurring; // Remove invalid recurrence
       }
@@ -244,13 +247,13 @@ async function extractTaskUpdate(
 
     // Return null if no valid fields remain after conversion/validation
     if (Object.keys(finalUpdate).length === 0) {
-      logger.warn('No valid update fields found after parsing XML.');
+      logger.warn("No valid update fields found after parsing XML.");
       return null;
     }
 
     return finalUpdate;
   } catch (error) {
-    logger.error('Error extracting task update information:', error);
+    logger.error("Error extracting task update information:", error);
     return null;
   }
 }
@@ -261,7 +264,7 @@ async function extractTaskUpdate(
 async function applyTaskUpdate(
   runtime: IAgentRuntime,
   task: Task,
-  update: TaskUpdate
+  update: TaskUpdate,
 ): Promise<Task> {
   // Start with current task data
   const updatedTags = [...(task.tags || [])];
@@ -274,9 +277,11 @@ async function applyTaskUpdate(
   };
 
   // Update priority (for one-off tasks)
-  if (update.priority && task.tags?.includes('one-off')) {
+  if (update.priority && task.tags?.includes("one-off")) {
     // Remove any existing priority tag
-    const priorityIndex = updatedTags.findIndex((tag) => tag.startsWith('priority-'));
+    const priorityIndex = updatedTags.findIndex((tag) =>
+      tag.startsWith("priority-"),
+    );
     if (priorityIndex !== -1) {
       updatedTags.splice(priorityIndex, 1);
     }
@@ -286,23 +291,25 @@ async function applyTaskUpdate(
   }
 
   // Update urgency (for one-off tasks)
-  if (update.urgent !== undefined && task.tags?.includes('one-off')) {
+  if (update.urgent !== undefined && task.tags?.includes("one-off")) {
     // Remove urgent tag if it exists
-    const urgentIndex = updatedTags.indexOf('urgent');
+    const urgentIndex = updatedTags.indexOf("urgent");
     if (urgentIndex !== -1) {
       updatedTags.splice(urgentIndex, 1);
     }
 
     // Add urgent tag if needed
     if (update.urgent) {
-      updatedTags.push('urgent');
+      updatedTags.push("urgent");
     }
   }
 
   // Update recurring pattern (for daily tasks)
-  if (update.recurring && task.tags?.includes('daily')) {
+  if (update.recurring && task.tags?.includes("daily")) {
     // Remove any existing recurring tag
-    const recurringIndex = updatedTags.findIndex((tag) => tag.startsWith('recurring-'));
+    const recurringIndex = updatedTags.findIndex((tag) =>
+      tag.startsWith("recurring-"),
+    );
     if (recurringIndex !== -1) {
       updatedTags.splice(recurringIndex, 1);
     }
@@ -338,21 +345,33 @@ async function applyTaskUpdate(
  * The UPDATE_TODO action allows users to modify an existing task.
  */
 export const updateTodoAction: Action = {
-  name: 'UPDATE_TODO',
-  similes: ['EDIT_TODO', 'MODIFY_TASK', 'CHANGE_TASK', 'MODIFY_TODO', 'EDIT_TASK'],
-  description: 'Updates an existing todo item immediately based on user description.',
+  name: "UPDATE_TODO",
+  similes: [
+    "EDIT_TODO",
+    "MODIFY_TASK",
+    "CHANGE_TASK",
+    "MODIFY_TODO",
+    "EDIT_TASK",
+  ],
+  description:
+    "Updates an existing todo item immediately based on user description.",
 
-  validate: async (runtime: IAgentRuntime, message: Memory): Promise<boolean> => {
+  validate: async (
+    runtime: IAgentRuntime,
+    message: Memory,
+  ): Promise<boolean> => {
     // Simpler validation: Only check if *any* active (non-completed) TODO exists
     try {
       const tasks = await runtime.getTasks({
         roomId: message.roomId,
-        tags: ['TODO'],
+        tags: ["TODO"],
       });
-      const activeTasks = tasks.filter((task) => !task.tags?.includes('completed'));
+      const activeTasks = tasks.filter(
+        (task) => !task.tags?.includes("completed"),
+      );
       return activeTasks.length > 0;
     } catch (error) {
-      logger.error('Error validating UPDATE_TODO action:', error);
+      logger.error("Error validating UPDATE_TODO action:", error);
       return false;
     }
   },
@@ -362,33 +381,39 @@ export const updateTodoAction: Action = {
     message: Memory,
     state: State,
     options: any, // Not used in this simplified flow
-    callback: HandlerCallback
+    callback: HandlerCallback,
   ): Promise<void> => {
     try {
       // Get all active todos for this room
       const tasks = await runtime.getTasks({
         roomId: message.roomId,
-        tags: ['TODO'],
+        tags: ["TODO"],
       });
-      const availableTasks = tasks.filter((task) => !task.tags?.includes('completed'));
+      const availableTasks = tasks.filter(
+        (task) => !task.tags?.includes("completed"),
+      );
 
       if (availableTasks.length === 0) {
         await callback({
           text: "You don't have any active tasks to update. Would you like to create a new task?",
-          actions: ['UPDATE_TODO_NO_TASKS'],
+          actions: ["UPDATE_TODO_NO_TASKS"],
           source: message.content.source,
         });
         return;
       }
 
       // Phase 1: Extract which task to update
-      const taskSelection = await extractTaskSelection(runtime, message, availableTasks);
+      const taskSelection = await extractTaskSelection(
+        runtime,
+        message,
+        availableTasks,
+      );
       if (!taskSelection.isFound) {
         await callback({
           text:
             "I couldn't determine which task you want to update. Could you be more specific? Here are your current tasks:\n\n" +
-            availableTasks.map((task) => `- ${task.name}`).join('\n'),
-          actions: ['UPDATE_TODO_NOT_FOUND'],
+            availableTasks.map((task) => `- ${task.name}`).join("\n"),
+          actions: ["UPDATE_TODO_NOT_FOUND"],
           source: message.content.source,
         });
         return;
@@ -398,7 +423,7 @@ export const updateTodoAction: Action = {
       if (!task) {
         await callback({
           text: `I couldn't find a task matching "${taskSelection.taskName}". Please try again with the exact task name.`,
-          actions: ['UPDATE_TODO_NOT_FOUND'],
+          actions: ["UPDATE_TODO_NOT_FOUND"],
           source: message.content.source,
         });
         return;
@@ -409,7 +434,7 @@ export const updateTodoAction: Action = {
       if (!update) {
         await callback({
           text: `I couldn't determine what changes you want to make to "${task.name}". Could you please specify what you want to update, such as the name, description, priority, or due date?`,
-          actions: ['UPDATE_TODO_INVALID_UPDATE'],
+          actions: ["UPDATE_TODO_INVALID_UPDATE"],
           source: message.content.source,
         });
         return;
@@ -420,14 +445,14 @@ export const updateTodoAction: Action = {
 
       await callback({
         text: `✓ Task updated: "${updatedTask.name}" has been updated.`, // Use updated name
-        actions: ['UPDATE_TODO_SUCCESS'], // Different action name
+        actions: ["UPDATE_TODO_SUCCESS"], // Different action name
         source: message.content.source,
       });
     } catch (error) {
-      logger.error('Error in updateTodo handler:', error);
+      logger.error("Error in updateTodo handler:", error);
       await callback({
-        text: 'I encountered an error while trying to update your task. Please try again.',
-        actions: ['UPDATE_TODO_ERROR'],
+        text: "I encountered an error while trying to update your task. Please try again.",
+        actions: ["UPDATE_TODO_ERROR"],
         source: message.content.source,
       });
     }
@@ -436,29 +461,29 @@ export const updateTodoAction: Action = {
   examples: [
     [
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
-          text: 'Update my taxes task to be due on April 18 instead',
+          text: "Update my taxes task to be due on April 18 instead",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
           text: '✓ Task updated: "Finish taxes" has been updated.',
-          actions: ['UPDATE_TODO_SUCCESS'],
+          actions: ["UPDATE_TODO_SUCCESS"],
         },
       },
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
-          text: 'Change the priority of my report task to high priority and make it urgent',
+          text: "Change the priority of my report task to high priority and make it urgent",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
           text: '✓ Task updated: "Write report" has been updated.',
-          actions: ['UPDATE_TODO_SUCCESS'],
+          actions: ["UPDATE_TODO_SUCCESS"],
         },
       },
     ],

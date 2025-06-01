@@ -1,5 +1,5 @@
-import type { IAgentRuntime, Memory, Provider } from '@elizaos/core';
-import { addHeader } from '@elizaos/core';
+import type { IAgentRuntime, Memory, Provider } from "@elizaos/core";
+import { addHeader } from "@elizaos/core";
 
 /**
  * Object representing the providersProvider, which contains information about data providers available for the agent.
@@ -13,30 +13,36 @@ import { addHeader } from '@elizaos/core';
  * @returns {Object} An object containing the formatted text and data for potential programmatic use.
  */
 export const providersProvider: Provider = {
-  name: 'PROVIDERS',
-  description: 'List of all data providers the agent can use to get additional information',
+  name: "PROVIDERS",
+  description:
+    "List of all data providers the agent can use to get additional information",
   get: async (runtime: IAgentRuntime, _message: Memory) => {
     // Filter providers with dynamic: true
-    const dynamicProviders = runtime.providers.filter((provider) => provider.dynamic === true);
+    const dynamicProviders = runtime.providers.filter(
+      (provider) => provider.dynamic === true,
+    );
 
     // Create formatted text for each provider
     const providerDescriptions = dynamicProviders.map((provider) => {
-      return `- **${provider.name}**: ${provider.description || 'No description available'}`;
+      return `- **${provider.name}**: ${provider.description || "No description available"}`;
     });
 
     // Create the header text
     const headerText =
-      '# Providers\n\nThese providers are available for the agent to select and use:';
+      "# Providers\n\nThese providers are available for the agent to select and use:";
 
     // If no dynamic providers are found
     if (providerDescriptions.length === 0) {
       return {
-        text: addHeader(headerText, 'No dynamic providers are currently available.'),
+        text: addHeader(
+          headerText,
+          "No dynamic providers are currently available.",
+        ),
       };
     }
 
     // Join all provider descriptions
-    const providersText = providerDescriptions.join('\n');
+    const providersText = providerDescriptions.join("\n");
 
     // Combine header and provider descriptions
     const text = addHeader(headerText, providersText);
@@ -45,7 +51,7 @@ export const providersProvider: Provider = {
     const data = {
       dynamicProviders: dynamicProviders.map((provider) => ({
         name: provider.name,
-        description: provider.description || '',
+        description: provider.description || "",
       })),
     };
 

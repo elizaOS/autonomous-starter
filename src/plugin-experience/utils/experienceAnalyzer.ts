@@ -1,4 +1,4 @@
-import { Experience, ExperienceType, OutcomeType } from '../types.js';
+import { Experience, ExperienceType, OutcomeType } from "../types.js";
 
 export interface ExperienceAnalysis {
   isSignificant: boolean;
@@ -10,10 +10,13 @@ export interface ExperienceAnalysis {
 
 export async function analyzeExperience(
   partialExperience: Partial<Experience>,
-  recentExperiences: Experience[]
+  recentExperiences: Experience[],
 ): Promise<ExperienceAnalysis> {
   // Check if this experience represents something new or significant
-  const similarExperiences = findSimilarExperiences(partialExperience, recentExperiences);
+  const similarExperiences = findSimilarExperiences(
+    partialExperience,
+    recentExperiences,
+  );
 
   // If we've seen this exact pattern many times, it's less significant
   if (similarExperiences.length > 5) {
@@ -24,31 +27,41 @@ export async function analyzeExperience(
   }
 
   // Check for contradictions with previous experiences
-  const contradictions = findContradictions(partialExperience, recentExperiences);
+  const contradictions = findContradictions(
+    partialExperience,
+    recentExperiences,
+  );
   if (contradictions.length > 0) {
     return {
       isSignificant: true,
       learning: `New outcome contradicts previous experience: ${partialExperience.result} vs ${contradictions[0].result}`,
       confidence: 0.8,
       relatedExperiences: contradictions.map((e) => e.id),
-      actionableInsights: ['Update strategy based on new information'],
+      actionableInsights: ["Update strategy based on new information"],
     };
   }
 
   // Check if this is a first-time action
-  const isFirstTime = !recentExperiences.some((e) => e.action === partialExperience.action);
+  const isFirstTime = !recentExperiences.some(
+    (e) => e.action === partialExperience.action,
+  );
   if (isFirstTime && partialExperience.type === ExperienceType.SUCCESS) {
     return {
       isSignificant: true,
       learning: `Successfully completed new action: ${partialExperience.action}`,
       confidence: 0.7,
-      actionableInsights: [`${partialExperience.action} is now a known capability`],
+      actionableInsights: [
+        `${partialExperience.action} is now a known capability`,
+      ],
     };
   }
 
   // Check for failure patterns
   if (partialExperience.type === ExperienceType.FAILURE) {
-    const failurePattern = detectFailurePattern(partialExperience, recentExperiences);
+    const failurePattern = detectFailurePattern(
+      partialExperience,
+      recentExperiences,
+    );
     if (failurePattern) {
       return {
         isSignificant: true,
@@ -62,26 +75,33 @@ export async function analyzeExperience(
 
   // Default: Record if confidence is high enough
   return {
-    isSignificant: partialExperience.type !== ExperienceType.SUCCESS || Math.random() > 0.7,
+    isSignificant:
+      partialExperience.type !== ExperienceType.SUCCESS || Math.random() > 0.7,
     confidence: 0.5,
   };
 }
 
 function findSimilarExperiences(
   partial: Partial<Experience>,
-  experiences: Experience[]
+  experiences: Experience[],
 ): Experience[] {
   return experiences.filter(
     (e) =>
       e.action === partial.action &&
       e.type === partial.type &&
-      similarContext(e.context, partial.context || '')
+      similarContext(e.context, partial.context || ""),
   );
 }
 
-function findContradictions(partial: Partial<Experience>, experiences: Experience[]): Experience[] {
+function findContradictions(
+  partial: Partial<Experience>,
+  experiences: Experience[],
+): Experience[] {
   return experiences.filter(
-    (e) => e.action === partial.action && e.context === partial.context && e.type !== partial.type
+    (e) =>
+      e.action === partial.action &&
+      e.context === partial.context &&
+      e.type !== partial.type,
   );
 }
 
@@ -101,19 +121,23 @@ interface FailurePattern {
 
 function detectFailurePattern(
   partial: Partial<Experience>,
-  experiences: Experience[]
+  experiences: Experience[],
 ): FailurePattern | null {
-  const recentFailures = experiences.filter((e) => e.type === ExperienceType.FAILURE).slice(0, 10);
+  const recentFailures = experiences
+    .filter((e) => e.type === ExperienceType.FAILURE)
+    .slice(0, 10);
 
   // Check for repeated failures
-  const sameActionFailures = recentFailures.filter((e) => e.action === partial.action);
+  const sameActionFailures = recentFailures.filter(
+    (e) => e.action === partial.action,
+  );
   if (sameActionFailures.length >= 3) {
     return {
       learning: `Action ${partial.action} has failed ${sameActionFailures.length} times recently. Need alternative approach.`,
       relatedIds: sameActionFailures.map((e) => e.id),
       insights: [
         `Avoid ${partial.action} until root cause is addressed`,
-        'Consider alternative actions to achieve the same goal',
+        "Consider alternative actions to achieve the same goal",
       ],
     };
   }
@@ -121,9 +145,13 @@ function detectFailurePattern(
   // Check for cascading failures
   if (recentFailures.length >= 5) {
     return {
-      learning: 'Multiple consecutive failures detected. System may be in unstable state.',
+      learning:
+        "Multiple consecutive failures detected. System may be in unstable state.",
       relatedIds: recentFailures.slice(0, 5).map((e) => e.id),
-      insights: ['Pause and reassess current approach', 'Check system health and dependencies'],
+      insights: [
+        "Pause and reassess current approach",
+        "Check system health and dependencies",
+      ],
     };
   }
 
@@ -135,14 +163,14 @@ export async function detectPatterns(experiences: Experience[]): Promise<
     description: string;
     frequency: number;
     experiences: string[];
-    significance: 'low' | 'medium' | 'high';
+    significance: "low" | "medium" | "high";
   }>
 > {
   const patterns: Array<{
     description: string;
     frequency: number;
     experiences: string[];
-    significance: 'low' | 'medium' | 'high';
+    significance: "low" | "medium" | "high";
   }> = [];
 
   // Group experiences by action
@@ -156,7 +184,8 @@ export async function detectPatterns(experiences: Experience[]): Promise<
   // Detect success/failure patterns
   actionGroups.forEach((group, action) => {
     const successRate =
-      group.filter((e) => e.outcome === OutcomeType.POSITIVE).length / group.length;
+      group.filter((e) => e.outcome === OutcomeType.POSITIVE).length /
+      group.length;
 
     if (group.length >= 5) {
       if (successRate < 0.3) {
@@ -164,14 +193,14 @@ export async function detectPatterns(experiences: Experience[]): Promise<
           description: `Action ${action} has low success rate (${Math.round(successRate * 100)}%)`,
           frequency: group.length,
           experiences: group.map((e) => e.id),
-          significance: 'high',
+          significance: "high",
         });
       } else if (successRate > 0.9) {
         patterns.push({
           description: `Action ${action} is highly reliable (${Math.round(successRate * 100)}% success)`,
           frequency: group.length,
           experiences: group.map((e) => e.id),
-          significance: 'medium',
+          significance: "medium",
         });
       }
     }
@@ -182,13 +211,14 @@ export async function detectPatterns(experiences: Experience[]): Promise<
   hourlyGroups.forEach((group, hour) => {
     if (group.length >= 10) {
       const failureRate =
-        group.filter((e) => e.outcome === OutcomeType.NEGATIVE).length / group.length;
+        group.filter((e) => e.outcome === OutcomeType.NEGATIVE).length /
+        group.length;
       if (failureRate > 0.5) {
         patterns.push({
           description: `Higher failure rate during hour ${hour} (${Math.round(failureRate * 100)}%)`,
           frequency: group.length,
           experiences: group.slice(0, 5).map((e) => e.id),
-          significance: 'medium',
+          significance: "medium",
         });
       }
     }
@@ -196,22 +226,26 @@ export async function detectPatterns(experiences: Experience[]): Promise<
 
   // Detect learning velocity
   const learningExperiences = experiences.filter(
-    (e) => e.type === ExperienceType.DISCOVERY || e.type === ExperienceType.LEARNING
+    (e) =>
+      e.type === ExperienceType.DISCOVERY || e.type === ExperienceType.LEARNING,
   );
 
   if (learningExperiences.length >= 3) {
     const recentLearning = learningExperiences.slice(0, 10);
     const timeDiffs = [];
     for (let i = 1; i < recentLearning.length; i++) {
-      timeDiffs.push(recentLearning[i - 1].createdAt - recentLearning[i].createdAt);
+      timeDiffs.push(
+        recentLearning[i - 1].createdAt - recentLearning[i].createdAt,
+      );
     }
-    const avgTimeBetweenLearning = timeDiffs.reduce((a, b) => a + b, 0) / timeDiffs.length;
+    const avgTimeBetweenLearning =
+      timeDiffs.reduce((a, b) => a + b, 0) / timeDiffs.length;
 
     patterns.push({
       description: `Learning new things every ${Math.round(avgTimeBetweenLearning / 60000)} minutes on average`,
       frequency: learningExperiences.length,
       experiences: recentLearning.map((e) => e.id),
-      significance: 'medium',
+      significance: "medium",
     });
   }
 

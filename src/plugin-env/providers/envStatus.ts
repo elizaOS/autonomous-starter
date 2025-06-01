@@ -6,39 +6,46 @@ import {
   type ProviderResult,
   type State,
   type UUID,
-} from '@elizaos/core';
-import type { EnvVarMetadata, EnvVarConfig } from '../types';
+} from "@elizaos/core";
+import type { EnvVarMetadata, EnvVarConfig } from "../types";
 
 /**
  * Formats environment variable status for display
  */
-function formatEnvVarStatus(config: EnvVarConfig, showValues: boolean = false): string {
+function formatEnvVarStatus(
+  config: EnvVarConfig,
+  showValues: boolean = false,
+): string {
   const statusIcon = {
-    missing: '❌',
-    generating: '⏳',
-    validating: '🔍',
-    invalid: '⚠️',
-    valid: '✅',
+    missing: "❌",
+    generating: "⏳",
+    validating: "🔍",
+    invalid: "⚠️",
+    valid: "✅",
   }[config.status];
 
-  const typeLabel = config.type.replace('_', ' ').toUpperCase();
-  const requiredLabel = config.required ? 'Required' : 'Optional';
+  const typeLabel = config.type.replace("_", " ").toUpperCase();
+  const requiredLabel = config.required ? "Required" : "Optional";
 
-  let valueDisplay = 'Not set';
+  let valueDisplay = "Not set";
   if (config.value) {
-    if (config.type === 'api_key' || config.type === 'secret' || config.type === 'private_key') {
-      valueDisplay = showValues ? config.value : '****************';
+    if (
+      config.type === "api_key" ||
+      config.type === "secret" ||
+      config.type === "private_key"
+    ) {
+      valueDisplay = showValues ? config.value : "****************";
     } else {
       valueDisplay = config.value;
     }
   }
 
-  let statusText = `${statusIcon} **${config.description || 'Environment Variable'}**\n`;
+  let statusText = `${statusIcon} **${config.description || "Environment Variable"}**\n`;
   statusText += `   Type: ${typeLabel} (${requiredLabel})\n`;
   statusText += `   Status: ${config.status.toUpperCase()}\n`;
   statusText += `   Value: ${valueDisplay}\n`;
 
-  if (config.canGenerate && config.status === 'missing') {
+  if (config.canGenerate && config.status === "missing") {
     statusText += `   🤖 Can be auto-generated\n`;
   }
 
@@ -52,11 +59,14 @@ function formatEnvVarStatus(config: EnvVarConfig, showValues: boolean = false): 
 /**
  * Generates a comprehensive status message for all environment variables
  */
-function generateEnvStatusMessage(envVars: EnvVarMetadata, showValues: boolean = false): string {
+function generateEnvStatusMessage(
+  envVars: EnvVarMetadata,
+  showValues: boolean = false,
+): string {
   const plugins = Object.keys(envVars);
 
   if (plugins.length === 0) {
-    return 'No environment variables configured yet.';
+    return "No environment variables configured yet.";
   }
 
   // Count variables by status
@@ -69,9 +79,9 @@ function generateEnvStatusMessage(envVars: EnvVarMetadata, showValues: boolean =
   for (const plugin of Object.values(envVars)) {
     for (const config of Object.values(plugin)) {
       totalVars++;
-      if (config.status === 'valid') {
+      if (config.status === "valid") {
         validVars++;
-      } else if (config.required && config.status === 'missing') {
+      } else if (config.required && config.status === "missing") {
         missingRequired++;
         if (config.canGenerate) {
           generatable++;
@@ -95,7 +105,7 @@ function generateEnvStatusMessage(envVars: EnvVarMetadata, showValues: boolean =
     }
   }
 
-  statusMessage += '\n';
+  statusMessage += "\n";
 
   // Group by plugin
   for (const [pluginName, plugin] of Object.entries(envVars)) {
@@ -104,13 +114,13 @@ function generateEnvStatusMessage(envVars: EnvVarMetadata, showValues: boolean =
     for (const [varName, config] of Object.entries(plugin)) {
       statusMessage += `### ${varName}\n`;
       statusMessage += formatEnvVarStatus(config, showValues);
-      statusMessage += '\n';
+      statusMessage += "\n";
     }
   }
 
   // Add action recommendations
   if (missingRequired > 0) {
-    statusMessage += '\n## Recommended Actions\n\n';
+    statusMessage += "\n## Recommended Actions\n\n";
 
     if (generatable > 0) {
       statusMessage += `1. **Generate Variables**: I can automatically generate ${generatable} variables for you.\n`;
@@ -121,7 +131,7 @@ function generateEnvStatusMessage(envVars: EnvVarMetadata, showValues: boolean =
     }
 
     statusMessage +=
-      '\nUse the SET_ENV_VAR action to configure variables or GENERATE_ENV_VAR to auto-generate them.\n';
+      "\nUse the SET_ENV_VAR action to configure variables or GENERATE_ENV_VAR to auto-generate them.\n";
   }
 
   return statusMessage;
@@ -131,40 +141,46 @@ function generateEnvStatusMessage(envVars: EnvVarMetadata, showValues: boolean =
  * Environment status provider that shows current state of all environment variables
  */
 export const envStatusProvider: Provider = {
-  name: 'ENV_STATUS',
-  description: 'Current status of environment variables for all plugins',
+  name: "ENV_STATUS",
+  description: "Current status of environment variables for all plugins",
 
-  get: async (runtime: IAgentRuntime, message: Memory, state?: State): Promise<ProviderResult> => {
+  get: async (
+    runtime: IAgentRuntime,
+    message: Memory,
+    state?: State,
+  ): Promise<ProviderResult> => {
     try {
-      const worldId = runtime.getSetting('WORLD_ID') as UUID;
+      const worldId = runtime.getSetting("WORLD_ID") as UUID;
 
       if (!worldId) {
-        logger.debug('[EnvStatus] No WORLD_ID found, skipping env status provider');
+        logger.debug(
+          "[EnvStatus] No WORLD_ID found, skipping env status provider",
+        );
         return {
           data: { envVars: {} },
           values: {
-            envStatus: 'No world configuration found.',
+            envStatus: "No world configuration found.",
             hasMissing: false,
             hasGeneratable: false,
             needsUserInput: false,
           },
-          text: 'No world configuration found.',
+          text: "No world configuration found.",
         };
       }
 
       const world = await runtime.getWorld(worldId);
 
       if (!world?.metadata?.envVars) {
-        logger.debug('[EnvStatus] No environment variables configured yet');
+        logger.debug("[EnvStatus] No environment variables configured yet");
         return {
           data: { envVars: {} },
           values: {
-            envStatus: 'No environment variables configured yet.',
+            envStatus: "No environment variables configured yet.",
             hasMissing: false,
             hasGeneratable: false,
             needsUserInput: false,
           },
-          text: 'No environment variables configured yet.',
+          text: "No environment variables configured yet.",
         };
       }
 
@@ -177,7 +193,7 @@ export const envStatusProvider: Provider = {
 
       for (const plugin of Object.values(envVars)) {
         for (const config of Object.values(plugin)) {
-          if (config.required && config.status === 'missing') {
+          if (config.required && config.status === "missing") {
             hasMissing = true;
             if (config.canGenerate) {
               hasGeneratable = true;
@@ -189,7 +205,7 @@ export const envStatusProvider: Provider = {
       }
 
       // Determine if we should show values (only in DM/onboarding context)
-      const showValues = message.content.channelType === 'DM';
+      const showValues = message.content.channelType === "DM";
 
       const statusText = generateEnvStatusMessage(envVars, showValues);
 
@@ -199,18 +215,22 @@ export const envStatusProvider: Provider = {
           summary: {
             total: Object.values(envVars).reduce(
               (sum, plugin) => sum + Object.keys(plugin).length,
-              0
+              0,
             ),
             missing: Object.values(envVars).reduce(
               (sum, plugin) =>
                 sum +
-                Object.values(plugin).filter((c) => c.required && c.status === 'missing').length,
-              0
+                Object.values(plugin).filter(
+                  (c) => c.required && c.status === "missing",
+                ).length,
+              0,
             ),
             valid: Object.values(envVars).reduce(
               (sum, plugin) =>
-                sum + Object.values(plugin).filter((c) => c.status === 'valid').length,
-              0
+                sum +
+                Object.values(plugin).filter((c) => c.status === "valid")
+                  .length,
+              0,
             ),
           },
         },
@@ -223,16 +243,16 @@ export const envStatusProvider: Provider = {
         text: statusText,
       };
     } catch (error) {
-      logger.error('[EnvStatus] Error in environment status provider:', error);
+      logger.error("[EnvStatus] Error in environment status provider:", error);
       return {
         data: { envVars: {} },
         values: {
-          envStatus: 'Error retrieving environment variable status.',
+          envStatus: "Error retrieving environment variable status.",
           hasMissing: false,
           hasGeneratable: false,
           needsUserInput: false,
         },
-        text: 'Error retrieving environment variable status.',
+        text: "Error retrieving environment variable status.",
       };
     }
   },

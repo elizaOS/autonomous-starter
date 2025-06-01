@@ -10,9 +10,9 @@ import {
   parseJSONObjectFromText,
   type State,
   type UUID,
-} from '@elizaos/core';
-import type { EnvVarMetadata, EnvVarUpdate, EnvVarConfig } from '../types';
-import { validateEnvVar } from '../validation';
+} from "@elizaos/core";
+import type { EnvVarMetadata, EnvVarUpdate, EnvVarConfig } from "../types";
+import { validateEnvVar } from "../validation";
 
 /**
  * Template for extracting environment variable assignments from user input
@@ -103,21 +103,24 @@ async function extractEnvVarValues(
   runtime: IAgentRuntime,
   message: Memory,
   state: State,
-  envVars: EnvVarMetadata
+  envVars: EnvVarMetadata,
 ): Promise<EnvVarUpdate[]> {
   // Generate context for available environment variables
   const envVarsContext = Object.entries(envVars)
     .map(([pluginName, plugin]) => {
       return Object.entries(plugin)
-        .filter(([, config]) => config.status === 'missing' || config.status === 'invalid')
+        .filter(
+          ([, config]) =>
+            config.status === "missing" || config.status === "invalid",
+        )
         .map(([varName, config]) => {
-          const requiredStr = config.required ? 'Required.' : 'Optional.';
+          const requiredStr = config.required ? "Required." : "Optional.";
           return `${pluginName}.${varName}: ${config.description} ${requiredStr}`;
         })
-        .join('\n');
+        .join("\n");
     })
     .filter(Boolean)
-    .join('\n');
+    .join("\n");
 
   if (!envVarsContext) {
     return [];
@@ -148,7 +151,7 @@ async function extractEnvVarValues(
         parsed = JSON.parse(result.trim());
       }
     } catch (parseError) {
-      logger.error('Error parsing JSON from model response:', parseError);
+      logger.error("Error parsing JSON from model response:", parseError);
       return [];
     }
 
@@ -160,7 +163,11 @@ async function extractEnvVarValues(
     const validAssignments: EnvVarUpdate[] = [];
 
     for (const assignment of parsed) {
-      if (assignment.pluginName && assignment.variableName && assignment.value) {
+      if (
+        assignment.pluginName &&
+        assignment.variableName &&
+        assignment.value
+      ) {
         // Check if the variable exists in our metadata
         if (envVars[assignment.pluginName]?.[assignment.variableName]) {
           validAssignments.push({
@@ -174,7 +181,7 @@ async function extractEnvVarValues(
 
     return validAssignments;
   } catch (error) {
-    logger.error('Error extracting environment variable values:', error);
+    logger.error("Error extracting environment variable values:", error);
     return [];
   }
 }
@@ -184,7 +191,7 @@ async function extractEnvVarValues(
  */
 async function processEnvVarUpdates(
   runtime: IAgentRuntime,
-  updates: EnvVarUpdate[]
+  updates: EnvVarUpdate[],
 ): Promise<{ updatedAny: boolean; messages: string[] }> {
   if (!updates.length) {
     return { updatedAny: false, messages: [] };
@@ -194,14 +201,14 @@ async function processEnvVarUpdates(
   let updatedAny = false;
 
   try {
-    const worldId = runtime.getSetting('WORLD_ID') as UUID;
+    const worldId = runtime.getSetting("WORLD_ID") as UUID;
     if (!worldId) {
-      throw new Error('No WORLD_ID found');
+      throw new Error("No WORLD_ID found");
     }
 
     const world = await runtime.getWorld(worldId);
     if (!world) {
-      throw new Error('World not found');
+      throw new Error("World not found");
     }
 
     // Initialize metadata if needed
@@ -215,7 +222,9 @@ async function processEnvVarUpdates(
       const { pluginName, variableName, value } = update;
 
       if (!envVars[pluginName]?.[variableName]) {
-        messages.push(`Environment variable ${variableName} not found for plugin ${pluginName}`);
+        messages.push(
+          `Environment variable ${variableName} not found for plugin ${pluginName}`,
+        );
         continue;
       }
 
@@ -225,7 +234,7 @@ async function processEnvVarUpdates(
       envVars[pluginName][variableName] = {
         ...config,
         value,
-        status: 'validating',
+        status: "validating",
         attempts: config.attempts + 1,
       };
 
@@ -237,13 +246,13 @@ async function processEnvVarUpdates(
         variableName,
         value,
         config.type,
-        config.validationMethod
+        config.validationMethod,
       );
 
       if (validationResult.isValid) {
         envVars[pluginName][variableName] = {
           ...envVars[pluginName][variableName],
-          status: 'valid',
+          status: "valid",
           validatedAt: Date.now(),
           lastError: undefined,
         };
@@ -251,10 +260,12 @@ async function processEnvVarUpdates(
       } else {
         envVars[pluginName][variableName] = {
           ...envVars[pluginName][variableName],
-          status: 'invalid',
+          status: "invalid",
           lastError: validationResult.error,
         };
-        messages.push(`❌ ${variableName} validation failed: ${validationResult.error}`);
+        messages.push(
+          `❌ ${variableName} validation failed: ${validationResult.error}`,
+        );
       }
 
       updatedAny = true;
@@ -267,10 +278,10 @@ async function processEnvVarUpdates(
 
     return { updatedAny, messages };
   } catch (error) {
-    logger.error('Error processing environment variable updates:', error);
+    logger.error("Error processing environment variable updates:", error);
     return {
       updatedAny: false,
-      messages: ['Error occurred while updating environment variables'],
+      messages: ["Error occurred while updating environment variables"],
     };
   }
 }
@@ -279,11 +290,11 @@ async function processEnvVarUpdates(
  * Gets the next missing environment variable that needs to be configured
  */
 function getNextMissingEnvVar(
-  envVars: EnvVarMetadata
+  envVars: EnvVarMetadata,
 ): { plugin: string; varName: string; config: EnvVarConfig } | null {
   for (const [pluginName, plugin] of Object.entries(envVars)) {
     for (const [varName, config] of Object.entries(plugin)) {
-      if (config.required && config.status === 'missing') {
+      if (config.required && config.status === "missing") {
         return { plugin: pluginName, varName, config };
       }
     }
@@ -295,13 +306,22 @@ function getNextMissingEnvVar(
  * Set environment variable action
  */
 export const setEnvVarAction: Action = {
-  name: 'SET_ENV_VAR',
-  similes: ['UPDATE_ENV_VAR', 'CONFIGURE_ENV', 'SET_ENVIRONMENT', 'UPDATE_ENVIRONMENT'],
-  description: 'Sets environment variables for plugins based on user input',
+  name: "SET_ENV_VAR",
+  similes: [
+    "UPDATE_ENV_VAR",
+    "CONFIGURE_ENV",
+    "SET_ENVIRONMENT",
+    "UPDATE_ENVIRONMENT",
+  ],
+  description: "Sets environment variables for plugins based on user input",
 
-  validate: async (runtime: IAgentRuntime, message: Memory, state?: State): Promise<boolean> => {
+  validate: async (
+    runtime: IAgentRuntime,
+    message: Memory,
+    state?: State,
+  ): Promise<boolean> => {
     try {
-      const worldId = runtime.getSetting('WORLD_ID') as UUID;
+      const worldId = runtime.getSetting("WORLD_ID") as UUID;
       if (!worldId) return false;
 
       const world = await runtime.getWorld(worldId);
@@ -312,7 +332,7 @@ export const setEnvVarAction: Action = {
       // Check if there are any missing or invalid environment variables
       for (const plugin of Object.values(envVars)) {
         for (const config of Object.values(plugin)) {
-          if (config.status === 'missing' || config.status === 'invalid') {
+          if (config.status === "missing" || config.status === "invalid") {
             return true;
           }
         }
@@ -320,7 +340,7 @@ export const setEnvVarAction: Action = {
 
       return false;
     } catch (error) {
-      logger.error('Error validating SET_ENV_VAR action:', error);
+      logger.error("Error validating SET_ENV_VAR action:", error);
       return false;
     }
   },
@@ -330,61 +350,79 @@ export const setEnvVarAction: Action = {
     message: Memory,
     state?: State,
     _options?: any,
-    callback?: HandlerCallback
+    callback?: HandlerCallback,
   ): Promise<void> => {
     try {
       if (!state || !callback) {
-        throw new Error('State and callback are required for SET_ENV_VAR action');
+        throw new Error(
+          "State and callback are required for SET_ENV_VAR action",
+        );
       }
 
-      const worldId = runtime.getSetting('WORLD_ID') as UUID;
+      const worldId = runtime.getSetting("WORLD_ID") as UUID;
       if (!worldId) {
-        throw new Error('No WORLD_ID found');
+        throw new Error("No WORLD_ID found");
       }
 
       const world = await runtime.getWorld(worldId);
       if (!world?.metadata?.envVars) {
-        throw new Error('No environment variables metadata found');
+        throw new Error("No environment variables metadata found");
       }
 
       const envVars = world.metadata.envVars as EnvVarMetadata;
 
       // Extract environment variable assignments from message
-      logger.info(`[SetEnvVar] Extracting env vars from message: ${message.content.text}`);
-      const extractedUpdates = await extractEnvVarValues(runtime, message, state, envVars);
-      logger.info(`[SetEnvVar] Extracted ${extractedUpdates.length} env var updates`);
+      logger.info(
+        `[SetEnvVar] Extracting env vars from message: ${message.content.text}`,
+      );
+      const extractedUpdates = await extractEnvVarValues(
+        runtime,
+        message,
+        state,
+        envVars,
+      );
+      logger.info(
+        `[SetEnvVar] Extracted ${extractedUpdates.length} env var updates`,
+      );
 
       // Process extracted updates
-      const updateResults = await processEnvVarUpdates(runtime, extractedUpdates);
+      const updateResults = await processEnvVarUpdates(
+        runtime,
+        extractedUpdates,
+      );
 
       if (updateResults.updatedAny) {
         logger.info(
-          `[SetEnvVar] Successfully updated env vars: ${updateResults.messages.join(', ')}`
+          `[SetEnvVar] Successfully updated env vars: ${updateResults.messages.join(", ")}`,
         );
 
         // Get updated environment variables
         const updatedWorld = await runtime.getWorld(worldId);
-        const updatedEnvVars = updatedWorld?.metadata?.envVars as EnvVarMetadata;
+        const updatedEnvVars = updatedWorld?.metadata
+          ?.envVars as EnvVarMetadata;
 
         if (!updatedEnvVars) {
-          throw new Error('Failed to retrieve updated environment variables');
+          throw new Error("Failed to retrieve updated environment variables");
         }
 
         // Get next missing variable
         const nextMissing = getNextMissingEnvVar(updatedEnvVars);
         const remainingMissing = Object.values(updatedEnvVars).reduce(
           (sum, plugin) =>
-            sum + Object.values(plugin).filter((c) => c.required && c.status === 'missing').length,
-          0
+            sum +
+            Object.values(plugin).filter(
+              (c) => c.required && c.status === "missing",
+            ).length,
+          0,
         );
 
         // Generate success response
         const prompt = composePrompt({
           state: {
-            updateMessages: updateResults.messages.join('\n'),
+            updateMessages: updateResults.messages.join("\n"),
             nextMissing: nextMissing
               ? `${nextMissing.varName} (${nextMissing.config.description})`
-              : 'None',
+              : "None",
             remainingMissing: remainingMissing.toString(),
           },
           template: successTemplate,
@@ -399,11 +437,11 @@ export const setEnvVarAction: Action = {
 
         await callback({
           text: responseContent.text,
-          actions: ['ENV_VAR_UPDATED'],
+          actions: ["ENV_VAR_UPDATED"],
           source: message.content.source,
         });
       } else {
-        logger.info('[SetEnvVar] No environment variables were updated');
+        logger.info("[SetEnvVar] No environment variables were updated");
 
         // Generate failure response
         const prompt = composePrompt({
@@ -423,7 +461,7 @@ export const setEnvVarAction: Action = {
 
         await callback({
           text: responseContent.text,
-          actions: ['ENV_VAR_UPDATE_FAILED'],
+          actions: ["ENV_VAR_UPDATE_FAILED"],
           source: message.content.source,
         });
       }
@@ -431,7 +469,7 @@ export const setEnvVarAction: Action = {
       logger.error(`[SetEnvVar] Error in handler: ${error}`);
       await callback?.({
         text: "I'm sorry, but I encountered an error while processing your environment variable update. Please try again or contact support if the issue persists.",
-        actions: ['ENV_VAR_UPDATE_ERROR'],
+        actions: ["ENV_VAR_UPDATE_ERROR"],
         source: message.content.source,
       });
     }
@@ -440,46 +478,46 @@ export const setEnvVarAction: Action = {
   examples: [
     [
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
-          text: 'Set OPENAI_API_KEY to sk-1234567890abcdef',
+          text: "Set OPENAI_API_KEY to sk-1234567890abcdef",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
-          text: '✅ OPENAI_API_KEY validated successfully! The OpenAI plugin is now configured and ready to use.',
-          actions: ['ENV_VAR_UPDATED'],
-        },
-      },
-    ],
-    [
-      {
-        name: '{{name1}}',
-        content: {
-          text: 'My Groq API key is gsk-abcdef1234567890',
-        },
-      },
-      {
-        name: '{{name2}}',
-        content: {
-          text: '✅ GROQ_API_KEY validated successfully! The Groq plugin is now configured.',
-          actions: ['ENV_VAR_UPDATED'],
+          text: "✅ OPENAI_API_KEY validated successfully! The OpenAI plugin is now configured and ready to use.",
+          actions: ["ENV_VAR_UPDATED"],
         },
       },
     ],
     [
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
-          text: 'Configure ANTHROPIC_API_KEY as sk-ant-1234567890',
+          text: "My Groq API key is gsk-abcdef1234567890",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
-          text: '✅ ANTHROPIC_API_KEY validated successfully! The Anthropic plugin is now ready.',
-          actions: ['ENV_VAR_UPDATED'],
+          text: "✅ GROQ_API_KEY validated successfully! The Groq plugin is now configured.",
+          actions: ["ENV_VAR_UPDATED"],
+        },
+      },
+    ],
+    [
+      {
+        name: "{{name1}}",
+        content: {
+          text: "Configure ANTHROPIC_API_KEY as sk-ant-1234567890",
+        },
+      },
+      {
+        name: "{{name2}}",
+        content: {
+          text: "✅ ANTHROPIC_API_KEY validated successfully! The Anthropic plugin is now ready.",
+          actions: ["ENV_VAR_UPDATED"],
         },
       },
     ],

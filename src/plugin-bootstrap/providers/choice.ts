@@ -1,5 +1,10 @@
-import type { IAgentRuntime, Memory, Provider, ProviderResult } from '@elizaos/core';
-import { logger } from '@elizaos/core';
+import type {
+  IAgentRuntime,
+  Memory,
+  Provider,
+  ProviderResult,
+} from "@elizaos/core";
+import { logger } from "@elizaos/core";
 
 // Define an interface for option objects
 /**
@@ -21,12 +26,15 @@ interface OptionObject {
  * @returns {Promise<ProviderResult>} A promise that resolves with the provider result containing the pending tasks with options
  */
 export const choiceProvider: Provider = {
-  name: 'CHOICE',
-  get: async (runtime: IAgentRuntime, message: Memory): Promise<ProviderResult> => {
+  name: "CHOICE",
+  get: async (
+    runtime: IAgentRuntime,
+    message: Memory,
+  ): Promise<ProviderResult> => {
     // Get all pending tasks for this room with options
     const pendingTasks = await runtime.getTasks({
       roomId: message.roomId,
-      tags: ['AWAITING_CHOICE'],
+      tags: ["AWAITING_CHOICE"],
     });
 
     if (!pendingTasks || pendingTasks.length === 0) {
@@ -35,14 +43,16 @@ export const choiceProvider: Provider = {
           tasks: [],
         },
         values: {
-          tasks: 'No pending choices for the moment.',
+          tasks: "No pending choices for the moment.",
         },
-        text: 'No pending choices for the moment.',
+        text: "No pending choices for the moment.",
       };
     }
 
     // Filter tasks that have options
-    const tasksWithOptions = pendingTasks.filter((task) => task.metadata?.options);
+    const tasksWithOptions = pendingTasks.filter(
+      (task) => task.metadata?.options,
+    );
 
     if (tasksWithOptions.length === 0) {
       return {
@@ -50,14 +60,14 @@ export const choiceProvider: Provider = {
           tasks: [],
         },
         values: {
-          tasks: 'No pending choices for the moment.',
+          tasks: "No pending choices for the moment.",
         },
-        text: 'No pending choices for the moment.',
+        text: "No pending choices for the moment.",
       };
     }
     // Format tasks into a readable list
-    let output = '# Pending Tasks\n\n';
-    output += 'The following tasks are awaiting your selection:\n\n';
+    let output = "# Pending Tasks\n\n";
+    output += "The following tasks are awaiting your selection:\n\n";
 
     tasksWithOptions.forEach((task, index) => {
       output += `${index + 1}. **${task.name}**\n`;
@@ -67,30 +77,35 @@ export const choiceProvider: Provider = {
 
       // List available options
       if (task.metadata?.options) {
-        output += '   Options:\n';
+        output += "   Options:\n";
 
         const options = task.metadata.options as Array<string | OptionObject>; // Type assertion
 
-        if (options.every((opt) => typeof opt === 'string')) {
+        if (options.every((opt) => typeof opt === "string")) {
           (options as string[]).forEach((optionName) => {
             output += `   - \`${optionName}\`\n`; // Just list string option
           });
         } else if (
-          options.every((opt) => typeof opt === 'object' && opt !== null && 'name' in opt)
+          options.every(
+            (opt) => typeof opt === "object" && opt !== null && "name" in opt,
+          )
         ) {
           (options as OptionObject[]).forEach((optionObj) => {
-            output += `   - \`${optionObj.name}\` ${optionObj.description ? `- ${optionObj.description}` : ''}\n`;
+            output += `   - \`${optionObj.name}\` ${optionObj.description ? `- ${optionObj.description}` : ""}\n`;
           });
         } else {
           // Handle mixed or unexpected format - log error or provide generic message
-          logger.warn(`[choiceProvider] Task ${task.id} has options in an unexpected format.`);
+          logger.warn(
+            `[choiceProvider] Task ${task.id} has options in an unexpected format.`,
+          );
           output += `   - Options format unclear for this task.\n`;
         }
       }
-      output += '\n';
+      output += "\n";
     });
 
-    output += "To select an option, reply with the option name (e.g., 'post' or 'cancel').\n";
+    output +=
+      "To select an option, reply with the option name (e.g., 'post' or 'cancel').\n";
 
     return {
       data: {

@@ -9,7 +9,7 @@ import {
   type State,
   parseKeyValueXml,
   createUniqueUuid,
-} from '@elizaos/core';
+} from "@elizaos/core";
 
 /**
  * Template for generating dialog and actions for a character.
@@ -48,10 +48,10 @@ Your response must ONLY include the <response></response> XML block.`;
  * @property {ActionExample[][]} examples - An array of example scenarios for the action.
  */
 export const reflectAction = {
-  name: 'REFLECT',
-  similes: ['REFLECTION'],
+  name: "REFLECT",
+  similes: ["REFLECTION"],
   description:
-    'Take a moment to process the current situation and respond thoughtfully. Use REFLECT both to acknowledge the start of a sequence of actions and to provide a final considered response at the end.',
+    "Take a moment to process the current situation and respond thoughtfully. Use REFLECT both to acknowledge the start of a sequence of actions and to provide a final considered response at the end.",
   validate: async (_runtime: IAgentRuntime) => {
     return true;
   },
@@ -61,20 +61,23 @@ export const reflectAction = {
     state: State,
     _options: any,
     callback: HandlerCallback,
-    responses?: Memory[]
+    responses?: Memory[],
   ) => {
     // Find all responses with REFLECT action and text
     const existingResponses = responses?.filter(
-      (response) => response.content.actions?.includes('REFLECT') && response.content.message
+      (response) =>
+        response.content.actions?.includes("REFLECT") &&
+        response.content.message,
     );
 
     // If we found any existing responses, use them and skip LLM
     if (existingResponses && existingResponses.length > 0) {
       for (const response of existingResponses) {
         const responseContent = {
-          thought: response.content.thought || 'Using provided text for reflect',
+          thought:
+            response.content.thought || "Using provided text for reflect",
           text: response.content.message as string,
-          actions: ['REFLECT'],
+          actions: ["REFLECT"],
         };
         await callback(responseContent);
       }
@@ -84,7 +87,7 @@ export const reflectAction = {
     // Only generate response using LLM if no suitable response was found
     state = await runtime.composeState(message, [
       ...(message.content.providers ?? []),
-      'AUTONOMOUS_FEED',
+      "AUTONOMOUS_FEED",
     ]);
 
     const prompt = composePromptFromState({
@@ -99,9 +102,9 @@ export const reflectAction = {
     const parsedXml = parseKeyValueXml(xmlResponse);
 
     const responseContent = {
-      thought: (parsedXml.thought as string) || 'Reflecting on the situation.',
-      text: (parsedXml.message as string) || '',
-      actions: ['REFLECT'],
+      thought: (parsedXml.thought as string) || "Reflecting on the situation.",
+      text: (parsedXml.message as string) || "",
+      actions: ["REFLECT"],
     };
 
     const memory: Memory = {
@@ -116,68 +119,68 @@ export const reflectAction = {
       worldId: message.worldId,
     };
 
-    await runtime.createMemory(memory, 'messages');
+    await runtime.createMemory(memory, "messages");
 
     await callback(memory.content);
   },
   examples: [
     [
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
-          text: 'Hello there!',
+          text: "Hello there!",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
-          text: 'Hmm, a greeting. I should probably reciprocate.',
-          actions: ['REFLECT'],
+          text: "Hmm, a greeting. I should probably reciprocate.",
+          actions: ["REFLECT"],
         },
       },
     ],
     [
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
           text: "What's your favorite color?",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
           text: "That's an interesting question. I recall processing data about human color preferences. Blue is often favored.",
-          actions: ['REFLECT'],
+          actions: ["REFLECT"],
         },
       },
     ],
     [
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
-          text: 'Can you explain how neural networks work?',
+          text: "Can you explain how neural networks work?",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
           text: "Neural networks... a complex topic. I should try to simplify it. It's about layers of interconnected nodes, like digital neurons.",
-          actions: ['REFLECT'],
+          actions: ["REFLECT"],
         },
       },
     ],
     [
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
-          text: 'Could you help me solve this math problem?',
+          text: "Could you help me solve this math problem?",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
-          text: 'A math problem. I need to understand the components and operations involved before attempting a solution.',
-          actions: ['REFLECT'],
+          text: "A math problem. I need to understand the components and operations involved before attempting a solution.",
+          actions: ["REFLECT"],
         },
       },
     ],
