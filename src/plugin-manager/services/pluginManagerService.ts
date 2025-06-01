@@ -62,6 +62,11 @@ let registryCache: {
   timestamp: number;
 } | null = null;
 
+// Function to reset cache for testing
+export function resetRegistryCache(): void {
+  registryCache = null;
+}
+
 // Registry functions
 async function getLocalRegistryIndex(): Promise<Record<string, RegistryEntry>> {
   // Check cache first
@@ -87,7 +92,7 @@ async function getLocalRegistryIndex(): Promise<Record<string, RegistryEntry>> {
   } catch (error) {
     logger.error('Failed to fetch plugin registry:', error);
     
-    // Return cached data if available
+    // Return cached data if available, otherwise empty registry
     if (registryCache) {
       logger.warn('Using stale registry cache');
       return registryCache.data;
@@ -98,39 +103,102 @@ async function getLocalRegistryIndex(): Promise<Record<string, RegistryEntry>> {
   }
 }
 
-// Mock installPlugin function (should be imported from @elizaos/cli/utils in real implementation)
-async function installPlugin(pluginName: string, targetDir: string, version?: string): Promise<boolean> {
-  logger.info(`Mock installing ${pluginName}${version ? `@${version}` : ''} to ${targetDir}`);
+// Real plugin installation function using npm/git
+async function installPlugin(pluginName: string, targetDir: string, version?: string): Promise<void> {
+  logger.info(`Installing ${pluginName}${version ? `@${version}` : ''} to ${targetDir}`);
   
-  // Simulate installation by creating a mock plugin directory
-  await fs.ensureDir(targetDir);
-  
-  // Create a mock package.json
-  const packageJson = {
-    name: pluginName,
-    version: version || '1.0.0',
-    main: 'index.js',
-    elizaos: {
-      requiredEnvVars: []
+  try {
+    // Ensure target directory exists
+    await fs.ensureDir(targetDir);
+    
+    // Get registry entry to determine installation method
+    const registry = await getLocalRegistryIndex();
+    const entry = registry[pluginName];
+    
+    if (!entry) {
+      throw new Error(`Plugin ${pluginName} not found in registry`);
     }
-  };
+    
+    // Determine installation method
+    if (entry.npm?.repo) {
+      // Install from npm
+      const packageName = entry.npm.repo;
+      const packageVersion = version || entry.npm.v1 || 'latest';
+      
+      await installFromNpm(packageName, packageVersion, targetDir);
+    } else if (entry.git?.repo) {
+      // Install from git
+      const gitRepo = entry.git.repo;
+      const gitVersion = version || entry.git.v1?.version || entry.git.v1?.branch || 'main';
+      
+      await installFromGit(gitRepo, gitVersion, targetDir);
+    } else {
+      throw new Error(`No installation method available for plugin ${pluginName}`);
+    }
+  } catch (error: any) {
+    logger.error(`Failed to install plugin ${pluginName}:`, error);
+    throw error; // Re-throw to preserve specific error messages
+  }
+}
+
+// Install plugin from npm
+async function installFromNpm(packageName: string, version: string, targetDir: string): Promise<void> {
+  logger.info(`Installing npm package ${packageName}@${version}`);
   
-  await fs.writeJson(path.join(targetDir, 'package.json'), packageJson, { spaces: 2 });
+  try {
+    const { execa } = await import('execa');
+    
+    // Install the package to the target directory
+    await execa('npm', ['install', `${packageName}@${version}`, '--prefix', targetDir], {
+      stdio: 'pipe'
+    });
+  } catch (error: any) {
+    logger.error(`Failed to install npm package:`, error);
+    throw error;
+  }
+}
+
+// Install plugin from git repository
+async function installFromGit(gitRepo: string, version: string, targetDir: string): Promise<void> {
+  logger.info(`Installing git repository ${gitRepo}#${version}`);
   
-  // Create a mock plugin file
-  const mockPluginContent = `
-export default {
-  name: '${pluginName}',
-  description: 'A dynamically installed plugin',
-  actions: [],
-  providers: [],
-  evaluators: []
-};
-`;
-  
-  await fs.writeFile(path.join(targetDir, 'index.js'), mockPluginContent);
-  
-  return true;
+  try {
+    const { execa } = await import('execa');
+    
+    // Clone the repository to a temporary directory
+    const tempDir = path.join(targetDir, '..', 'temp-' + Date.now());
+    await fs.ensureDir(tempDir);
+    
+    try {
+      // Clone the repository
+      await execa('git', ['clone', gitRepo, tempDir], {
+        stdio: 'pipe'
+      });
+      
+      // Checkout specific version/branch if specified
+      if (version !== 'main' && version !== 'master') {
+        await execa('git', ['checkout', version], {
+          cwd: tempDir,
+          stdio: 'pipe'
+        });
+      }
+      
+      // Install dependencies
+      await execa('npm', ['install'], {
+        cwd: tempDir,
+        stdio: 'pipe'
+      });
+      
+      // Copy to target directory
+      await fs.copy(tempDir, targetDir);
+    } finally {
+      // Clean up temp directory
+      await fs.remove(tempDir);
+    }
+  } catch (error: any) {
+    logger.error(`Failed to install git repository:`, error);
+    throw error;
+  }
 }
 
 export class PluginManagerService extends Service implements PluginRegistry {
@@ -519,12 +587,8 @@ export class PluginManagerService extends Service implements PluginRegistry {
       // Ensure plugin directory exists
       await fs.ensureDir(path.dirname(pluginDir));
       
-      // Install using mock function (replace with real CLI utility in production)
-      const success = await installPlugin(pluginName, pluginDir, version);
-      
-      if (!success) {
-        throw new Error('Plugin installation failed');
-      }
+      // Install using real installation function
+      await installPlugin(pluginName, pluginDir, version);
       
       // Parse plugin metadata
       const metadata = await this.parsePluginMetadata(pluginDir);
@@ -546,7 +610,7 @@ export class PluginManagerService extends Service implements PluginRegistry {
       
     } catch (error: any) {
       logger.error(`Failed to install plugin ${pluginName}:`, error);
-      throw new Error(`Plugin installation failed: ${error.message}`);
+      throw error; // Re-throw original error instead of wrapping it
     }
   }
 

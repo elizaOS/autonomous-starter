@@ -21,53 +21,7 @@ export const startPluginConfigurationAction: Action = {
     'set up plugin'
   ],
   description: 'Initiates configuration dialog for a plugin to collect required environment variables',
-  examples: [
-    [
-      {
-        user: 'user',
-        content: {
-          text: 'I need to configure the openai plugin'
-        }
-      },
-      {
-        user: 'assistant',
-        content: {
-          text: "I'll help you configure the openai plugin. Let me check what environment variables are required.",
-          action: 'START_PLUGIN_CONFIGURATION'
-        }
-      }
-    ],
-    [
-      {
-        user: 'user',
-        content: {
-          text: 'Can you help me set up the discord plugin?'
-        }
-      },
-      {
-        user: 'assistant',
-        content: {
-          text: "Of course! I'll guide you through setting up the discord plugin configuration.",
-          action: 'START_PLUGIN_CONFIGURATION'
-        }
-      }
-    ],
-    [
-      {
-        user: 'user',
-        content: {
-          text: 'Setup plugin environment variables'
-        }
-      },
-      {
-        user: 'assistant',
-        content: {
-          text: "I can help you configure plugin environment variables. Which plugin would you like to set up?",
-          action: 'START_PLUGIN_CONFIGURATION'
-        }
-      }
-    ]
-  ],
+  examples: [],
 
   validate: async (runtime: IAgentRuntime, message: Memory, state?: State): Promise<boolean> => {
     try {
@@ -127,8 +81,11 @@ export const startPluginConfigurationAction: Action = {
         return `ℹ️ The plugin "${pluginName}" doesn't require any configuration, or I couldn't find it. Please check the plugin name and try again.`;
       }
 
-      // Check current configuration status
-      const missingVars = await configService.checkPluginConfiguration(pluginName);
+      // Check current configuration status - find which variables are missing
+      const currentConfig = await configService.getPluginConfiguration(pluginName);
+      const missingVars = result.requiredVars
+        .filter(varInfo => !currentConfig[varInfo.name])
+        .map(varInfo => varInfo.name);
       
       if (missingVars.length === 0) {
         return `✅ The plugin "${pluginName}" is already fully configured! All required environment variables are set.`;
@@ -142,10 +99,10 @@ export const startPluginConfigurationAction: Action = {
         optionalVars: result.optionalVars
       };
 
-      // Start the configuration dialog
+      // Start the configuration dialog using agentId as a fallback for userId
       const dialog = await interactionService.initiateConfigurationDialog(
         configRequest, 
-        message.userId
+        runtime.agentId
       );
 
       if (missingVars.length === 0) {
