@@ -55,7 +55,7 @@ export const performScreenAction: Action = {
           executedActions++;
         } else if (step.action === 'click') {
           const button = step.button || 'left';
-          service.click(button);
+          service.click(button, false);
           actionSummary.push(`clicked ${button} mouse button`);
           executedActions++;
         } else if (step.action === 'type' && step.text) {

@@ -46,25 +46,38 @@ describe('RobotService OCR Tests', () => {
   let mockTesseractWorker: any;
 
   beforeEach(async () => {
-    // Create mock runtime
     mockRuntime = {
       useModel: vi.fn(),
       getService: vi.fn(),
       getAllServices: vi.fn(() => new Map()),
+      getSetting: vi.fn((key: string) => {
+        if (key === 'ENABLE_LOCAL_OCR') return true;
+        return null;
+      }),
     } as any;
 
-    // Mock Tesseract worker
+    // Define the mock worker object that tests will control
     mockTesseractWorker = {
-      recognize: vi.fn(),
-      terminate: vi.fn()
+      recognize: vi.fn(), // Default implementation will be set per test
+      terminate: vi.fn().mockResolvedValue(undefined),
     };
 
-    // Mock createWorker to return our mock
-    const { createWorker } = await import('tesseract.js');
-    vi.mocked(createWorker).mockResolvedValue(mockTesseractWorker);
+    // Get the mocked createWorker from tesseract.js (which comes from the top-level vi.mock)
+    const tesseract = await import('tesseract.js');
+    const mockCreateWorker = vi.mocked(tesseract.createWorker);
 
-    // Use the instance returned and configured by the static start method
+    // Configure this mocked createWorker to resolve to our specific mockTesseractWorker instance
+    mockCreateWorker.mockResolvedValue(mockTesseractWorker);
+
+    // RobotService.start calls createWorker, which will now resolve to mockTesseractWorker.
+    // This will set RobotService.tesseractWorker (the static property) to our mockTesseractWorker.
     robotService = await RobotService.start(mockRuntime) as RobotService;
+
+    // ** Crucial Patch for instance method testing **
+    // The RobotService instance created by RobotService.start() does not have its
+    // instance `this.tesseractWorker` set. We patch it here so that instance methods
+    // like `performLocalOCR` (when called on this instance) use our controlled mock worker.
+    (robotService as any).tesseractWorker = mockTesseractWorker;
   });
 
   afterEach(async () => {

@@ -18,7 +18,7 @@ import { robotPlugin } from './plugin-robot';
 import { shellPlugin } from './plugin-shell';
 import { experiencePlugin } from './plugin-experience';
 import { envPlugin } from './plugin-env';
-import { todoPlugin } from './plugin-todo';
+import { TodoPlugin } from './plugin-todo';
 
 /**
  * Represents the default character (Autoliza) with her specific attributes and behaviors.
@@ -189,7 +189,7 @@ export const projectAgent: ProjectAgent = {
     robotPlugin,
     experiencePlugin,
     envPlugin,
-    todoPlugin,
+    TodoPlugin,
   ],
 };
 const project: Project = {
