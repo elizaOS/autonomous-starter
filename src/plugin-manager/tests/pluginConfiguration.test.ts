@@ -22,8 +22,8 @@ describe("Plugin Configuration System", () => {
       "configuration management",
     );
     expect(pluginManagerPlugin.services).toHaveLength(3);
-    expect(pluginManagerPlugin.actions).toHaveLength(3);
-    expect(pluginManagerPlugin.providers).toHaveLength(2);
+    expect(pluginManagerPlugin.actions).toHaveLength(4);
+    expect(pluginManagerPlugin.providers).toHaveLength(3);
     expect(pluginManagerPlugin.evaluators).toHaveLength(1);
   });
 

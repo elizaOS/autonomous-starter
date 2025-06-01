@@ -10,15 +10,15 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import { openaiPlugin } from "@elizaos/plugin-openai";
-import { autoPlugin } from "./plugin-auto";
-import { bootstrapPlugin } from "./plugin-bootstrap";
+import { autoPlugin } from "./plugin-auto/index.js";
+import { bootstrapPlugin } from "./plugin-bootstrap/index.js";
 import { groqPlugin } from "@elizaos/plugin-groq";
-import { pluginManagerPlugin } from "./plugin-manager";
-import { robotPlugin } from "./plugin-robot";
-import { shellPlugin } from "./plugin-shell";
-import { experiencePlugin } from "./plugin-experience";
-import { envPlugin } from "./plugin-env";
-import { TodoPlugin } from "./plugin-todo";
+import { pluginManagerPlugin } from "./plugin-manager/index.js";
+import { robotPlugin } from "./plugin-robot/index.js";
+import { shellPlugin } from "./plugin-shell/index.js";
+import { experiencePlugin } from "./plugin-experience/index.js";
+import { envPlugin } from "./plugin-env/index.js";
+import { TodoPlugin } from "./plugin-todo/index.js";
 
 /**
  * Represents the default character (Autoliza) with her specific attributes and behaviors.

@@ -129,9 +129,7 @@ export class ShellService extends Service {
     return service;
   }
 
-  async executeCommand(
-    command: string,
-  ): Promise<{
+  async executeCommand(command: string): Promise<{
     output: string;
     error?: string;
     exitCode: number | null;

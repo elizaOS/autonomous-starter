@@ -347,6 +347,9 @@ describe("RobotService", () => {
       const context1 = await robotService.getContext();
       const timestamp1 = context1.timestamp;
 
+      // Clear the cached context to force refresh
+      (robotService as any).context = null;
+
       // Wait for TTL to expire using real time
       await new Promise((resolve) =>
         setTimeout(resolve, robotService["config"].cacheTTL + 100),

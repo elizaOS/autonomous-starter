@@ -101,61 +101,74 @@ export const TodoPlugin: Plugin = {
     // Setup daily task reset for recurring tasks
     // This creates a task that will run at the start of each day to reset daily tasks
 
-    // TOOD: Look and see if we already have this task. If we do, we don't need to create it again.
-    const resetTaskId = await runtime.createTask({
-      name: "RESET_DAILY_TASKS",
-      description: "Resets daily tasks at the start of each day",
-      tags: ["system", "recurring-daily"],
-      metadata: {
-        updateInterval: 24 * 60 * 60 * 1000, // 24 hours
-      },
-    });
+    // Check if worldId exists before creating the task
+    const worldId = runtime.getSetting("WORLD_ID");
+    if (!worldId) {
+      logger.warn(
+        "TodoPlugin: No WORLD_ID found, skipping daily task reset setup",
+      );
+      // Continue initialization without the daily reset task
+    } else {
+      // TOOD: Look and see if we already have this task. If we do, we don't need to create it again.
+      const resetTaskId = await runtime.createTask({
+        name: "RESET_DAILY_TASKS",
+        description: "Resets daily tasks at the start of each day",
+        tags: ["system", "recurring-daily"],
+        metadata: {
+          updateInterval: 24 * 60 * 60 * 1000, // 24 hours
+        },
+      });
+      logger.info(
+        `TodoPlugin: Daily task reset scheduled with id: ${resetTaskId}`,
+      );
+    }
 
     // Register the task worker to handle daily task reset
+    if (worldId) {
+      // Do we have to run this every single time?
+      runtime.registerTaskWorker({
+        name: "RESET_DAILY_TASKS",
+        validate: async () => true,
+        execute: async (runtime) => {
+          logger.info("Executing daily task reset");
+          try {
+            // Get all daily tasks across all rooms
+            const dailyTasks = await runtime.getTasks({
+              tags: ["daily", "completed", "TODO"],
+            });
 
-    // Do we have to run this every single time?
-    runtime.registerTaskWorker({
-      name: "RESET_DAILY_TASKS",
-      validate: async () => true,
-      execute: async (runtime) => {
-        logger.info("Executing daily task reset");
-        try {
-          // Get all daily tasks across all rooms
-          const dailyTasks = await runtime.getTasks({
-            tags: ["daily", "completed", "TODO"],
-          });
+            // Reset each completed daily task
+            for (const task of dailyTasks) {
+              if (
+                task.tags?.includes("completed") &&
+                task.metadata?.completedToday
+              ) {
+                // Remove the completed tag so the task is active again
+                const updatedTags = task.tags.filter(
+                  (tag) => tag !== "completed",
+                );
 
-          // Reset each completed daily task
-          for (const task of dailyTasks) {
-            if (
-              task.tags?.includes("completed") &&
-              task.metadata?.completedToday
-            ) {
-              // Remove the completed tag so the task is active again
-              const updatedTags = task.tags.filter(
-                (tag) => tag !== "completed",
-              );
+                await runtime.updateTask(task.id, {
+                  tags: updatedTags,
+                  metadata: {
+                    ...task.metadata,
+                    completedToday: false,
+                  },
+                });
 
-              await runtime.updateTask(task.id, {
-                tags: updatedTags,
-                metadata: {
-                  ...task.metadata,
-                  completedToday: false,
-                },
-              });
-
-              logger.debug(`Reset daily task: ${task.name}`);
+                logger.debug(`Reset daily task: ${task.name}`);
+              }
             }
+
+            logger.info("Daily task reset completed");
+          } catch (error) {
+            logger.error("Error resetting daily tasks:", error);
           }
+        },
+      });
 
-          logger.info("Daily task reset completed");
-        } catch (error) {
-          logger.error("Error resetting daily tasks:", error);
-        }
-      },
-    });
-
-    logger.info("Daily task reset scheduled");
+      logger.info("Daily task reset scheduled");
+    }
   },
 };
 

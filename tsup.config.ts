@@ -11,9 +11,14 @@ export default defineConfig({
   external: [
     'dotenv', // Externalize dotenv to prevent bundling
     'fs', // Externalize fs to use Node.js built-in module
+    'fs-extra', // Externalize fs-extra to prevent bundling issues
+    'graceful-fs', // Externalize graceful-fs (dependency of fs-extra)
     'path', // Externalize other built-ins if necessary
     'https',
     'http',
     'zod',
+    '@jitsi/robotjs', // Externalize native modules
+    'canvas', // Externalize native modules
+    'sharp', // Externalize native modules
   ],
 });
