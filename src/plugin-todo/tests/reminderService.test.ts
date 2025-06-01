@@ -174,7 +174,7 @@ describe("TodoReminderService", () => {
     service = await TodoReminderService.start(mockRuntime);
 
     // Should not throw error
-    await expect(service.checkTasksNow()).resolves.not.toThrow();
+    await service.checkTasksNow();
 
     // Should not send any reminders for invalid dates
     expect(mockRuntime.emitEvent).not.toHaveBeenCalled();
@@ -211,7 +211,10 @@ describe("TodoReminderService", () => {
     service = await TodoReminderService.start(mockRuntime);
 
     // Should not throw error
-    await expect(service.checkTasksNow()).resolves.not.toThrow();
+    await service.checkTasksNow();
+    
+    // If we get here without throwing, the test passes
+    expect(true).toBe(true);
   });
 
   it("should stop service via static method", async () => {

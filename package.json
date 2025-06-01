@@ -55,6 +55,7 @@
     "dedent": "^1.6.0",
     "express": "4.21.1",
     "fs-extra": "^11.3.0",
+    "jsonpath-plus": "^10.3.0",
     "lucide-react": "^0.473.0",
     "minipass": "7.1.2",
     "moment": "^2.30.1",
