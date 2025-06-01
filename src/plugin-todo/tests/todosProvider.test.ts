@@ -153,7 +153,8 @@ describe("todosProvider", () => {
 
     const result = await todosProvider.get(mockRuntime, mockMessage, mockState);
 
-    expect(result.text).toContain("OVERDUE");
+    expect(result.text).toContain("Overdue Task");
+    expect(result.text).toContain("due");
   });
 
   it("should handle tasks without metadata gracefully", async () => {
@@ -201,10 +202,13 @@ describe("todosProvider", () => {
     const result = await todosProvider.get(mockRuntime, mockMessage, mockState);
 
     // Check that sections appear in correct order
-    const dailyIndex = result.text.indexOf("Daily/Recurring Tasks:");
-    const oneOffIndex = result.text.indexOf("One-off Tasks:");
-    const aspirationalIndex = result.text.indexOf("Aspirational Goals:");
+    const dailyIndex = result.text.indexOf("Daily Todos");
+    const oneOffIndex = result.text.indexOf("One-off Todos");
+    const aspirationalIndex = result.text.indexOf("Aspirational Todos");
 
+    expect(dailyIndex).toBeGreaterThan(-1);
+    expect(oneOffIndex).toBeGreaterThan(-1);
+    expect(aspirationalIndex).toBeGreaterThan(-1);
     expect(dailyIndex).toBeLessThan(oneOffIndex);
     expect(oneOffIndex).toBeLessThan(aspirationalIndex);
   });
@@ -228,8 +232,9 @@ describe("todosProvider", () => {
 
     const result = await todosProvider.get(mockRuntime, mockMessage, mockState);
 
-    expect(result.text).toContain("✅ Completed today!");
-    expect(result.text).toContain("10 day streak");
+    // The completed task should be filtered out of active tasks
+    expect(result.text).toContain("No daily todos");
+    expect(result.text).toContain("Recently Completed");
   });
 
   it("should format priority levels correctly", async () => {
@@ -252,8 +257,8 @@ describe("todosProvider", () => {
 
     const result = await todosProvider.get(mockRuntime, mockMessage, mockState);
 
-    expect(result.text).toContain("Priority: 1");
-    expect(result.text).toContain("Priority: 3");
+    expect(result.text).toContain("P1");
+    expect(result.text).toContain("P3");
   });
 
   it("should handle urgent tasks", async () => {

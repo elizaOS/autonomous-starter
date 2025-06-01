@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 {
   "/Users/shawwalters/eliza/packages/autonomous-starter/src/plugin-env/generation.ts": {
     "path": "/Users/shawwalters/eliza/packages/autonomous-starter/src/plugin-env/generation.ts",
@@ -11306,3 +11307,5 @@
     "f": { "0": 7, "1": 2, "2": 1, "3": 4 }
   }
 }
+=======
+>>>>>>> b68729d78ccd8d236a5194618153a3d0f12a15e6
