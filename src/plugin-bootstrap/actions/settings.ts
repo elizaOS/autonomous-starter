@@ -16,8 +16,8 @@ import {
   type Setting,
   type State,
   type WorldSettings,
-} from '@elizaos/core';
-import dedent from 'dedent';
+} from "@elizaos/core";
+import dedent from "dedent";
 
 /**
  * Interface representing the structure of a setting update object.
@@ -241,7 +241,7 @@ IMPORTANT: Only include settings from the Available Settings list above. Ignore 
  */
 export async function getWorldSettings(
   runtime: IAgentRuntime,
-  serverId: string
+  serverId: string,
 ): Promise<WorldSettings | null> {
   try {
     const worldId = createUniqueUuid(runtime, serverId);
@@ -264,7 +264,7 @@ export async function getWorldSettings(
 export async function updateWorldSettings(
   runtime: IAgentRuntime,
   serverId: string,
-  worldSettings: WorldSettings
+  worldSettings: WorldSettings,
 ): Promise<boolean> {
   try {
     const worldId = createUniqueUuid(runtime, serverId);
@@ -298,15 +298,15 @@ export async function updateWorldSettings(
  */
 function formatSettingsList(worldSettings: WorldSettings): string {
   const settings = Object.entries(worldSettings)
-    .filter(([key]) => !key.startsWith('_')) // Skip internal settings
+    .filter(([key]) => !key.startsWith("_")) // Skip internal settings
     .map(([key, setting]) => {
-      const status = setting.value !== null ? 'Configured' : 'Not configured';
-      const required = setting.required ? 'Required' : 'Optional';
+      const status = setting.value !== null ? "Configured" : "Not configured";
+      const required = setting.required ? "Required" : "Optional";
       return `- ${setting.name} (${key}): ${status}, ${required}`;
     })
-    .join('\n');
+    .join("\n");
 
-  return settings || 'No settings available';
+  return settings || "No settings available";
 }
 
 /**
@@ -321,9 +321,12 @@ function categorizeSettings(worldSettings: WorldSettings): {
   const requiredUnconfigured: [string, Setting][] = [];
   const optionalUnconfigured: [string, Setting][] = [];
 
-  for (const [key, setting] of Object.entries(worldSettings) as [string, Setting][]) {
+  for (const [key, setting] of Object.entries(worldSettings) as [
+    string,
+    Setting,
+  ][]) {
     // Skip internal settings
-    if (key.startsWith('_')) continue;
+    if (key.startsWith("_")) continue;
 
     if (setting.value !== null) {
       configured.push([key, setting]);
@@ -344,19 +347,20 @@ async function extractSettingValues(
   runtime: IAgentRuntime,
   _message: Memory,
   state: State,
-  worldSettings: WorldSettings
+  worldSettings: WorldSettings,
 ): Promise<SettingUpdate[]> {
   // Find what settings need to be configured
-  const { requiredUnconfigured, optionalUnconfigured } = categorizeSettings(worldSettings);
+  const { requiredUnconfigured, optionalUnconfigured } =
+    categorizeSettings(worldSettings);
 
   // Generate a prompt to extract settings from the user's message
   const settingsContext = requiredUnconfigured
     .concat(optionalUnconfigured)
     .map(([key, setting]) => {
-      const requiredStr = setting.required ? 'Required.' : 'Optional.';
+      const requiredStr = setting.required ? "Required." : "Optional.";
       return `${key}: ${setting.description} ${requiredStr}`;
     })
-    .join('\n');
+    .join("\n");
 
   const basePrompt = dedent`
     I need to extract settings values from the user's message.
@@ -374,24 +378,24 @@ async function extractSettingValues(
 
   try {
     // Use runtime.useModel directly with strong typing
-    const result = await runtime.useModel<typeof ModelType.OBJECT_LARGE, SettingUpdate[]>(
-      ModelType.OBJECT_LARGE,
-      {
-        prompt: basePrompt,
-        output: 'array',
-        schema: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              key: { type: 'string' },
-              value: { type: 'string' },
-            },
-            required: ['key', 'value'],
+    const result = await runtime.useModel<
+      typeof ModelType.OBJECT_LARGE,
+      SettingUpdate[]
+    >(ModelType.OBJECT_LARGE, {
+      prompt: basePrompt,
+      output: "array",
+      schema: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            key: { type: "string" },
+            value: { type: "string" },
           },
+          required: ["key", "value"],
         },
-      }
-    );
+      },
+    });
 
     // Validate the extracted settings
     if (!result) {
@@ -406,9 +410,9 @@ async function extractSettingValues(
           for (const item of node) {
             traverse(item);
           }
-        } else if (typeof node === 'object' && node !== null) {
+        } else if (typeof node === "object" && node !== null) {
           for (const [key, value] of Object.entries(node)) {
-            if (worldSettings[key] && typeof value !== 'object') {
+            if (worldSettings[key] && typeof value !== "object") {
               extracted.push({ key, value });
             } else {
               traverse(value);
@@ -425,7 +429,7 @@ async function extractSettingValues(
 
     return extractedSettings;
   } catch (error) {
-    console.error('Error extracting settings:', error);
+    console.error("Error extracting settings:", error);
     return [];
   }
 }
@@ -437,7 +441,7 @@ async function processSettingUpdates(
   runtime: IAgentRuntime,
   serverId: string,
   worldSettings: WorldSettings,
-  updates: SettingUpdate[]
+  updates: SettingUpdate[],
 ): Promise<{ updatedAny: boolean; messages: string[] }> {
   if (!updates.length) {
     return { updatedAny: false, messages: [] };
@@ -457,7 +461,9 @@ async function processSettingUpdates(
 
       // Check dependencies if they exist
       if (setting.dependsOn?.length) {
-        const dependenciesMet = setting.dependsOn.every((dep) => updatedState[dep]?.value !== null);
+        const dependenciesMet = setting.dependsOn.every(
+          (dep) => updatedState[dep]?.value !== null,
+        );
         if (!dependenciesMet) {
           messages.push(`Cannot update ${setting.name} - dependencies not met`);
           continue;
@@ -488,22 +494,22 @@ async function processSettingUpdates(
       const saved = await updateWorldSettings(runtime, serverId, updatedState);
 
       if (!saved) {
-        throw new Error('Failed to save updated state to world metadata');
+        throw new Error("Failed to save updated state to world metadata");
       }
 
       // Verify save by retrieving it again
       const savedState = await getWorldSettings(runtime, serverId);
       if (!savedState) {
-        throw new Error('Failed to verify state save');
+        throw new Error("Failed to verify state save");
       }
     }
 
     return { updatedAny, messages };
   } catch (error) {
-    logger.error('Error processing setting updates:', error);
+    logger.error("Error processing setting updates:", error);
     return {
       updatedAny: false,
-      messages: ['Error occurred while updating settings'],
+      messages: ["Error occurred while updating settings"],
     };
   }
 }
@@ -515,7 +521,7 @@ async function handleOnboardingComplete(
   runtime: IAgentRuntime,
   worldSettings: WorldSettings,
   state: State,
-  callback: HandlerCallback
+  callback: HandlerCallback,
 ): Promise<void> {
   try {
     // Generate completion message
@@ -538,14 +544,14 @@ async function handleOnboardingComplete(
 
     await callback({
       text: responseContent.text,
-      actions: ['ONBOARDING_COMPLETE'],
+      actions: ["ONBOARDING_COMPLETE"],
       source: state.message.content.source,
     });
   } catch (error) {
     logger.error(`Error handling settings completion: ${error}`);
     await callback({
-      text: 'Great! All required settings have been configured. Your server is now fully set up and ready to use.',
-      actions: ['ONBOARDING_COMPLETE'],
+      text: "Great! All required settings have been configured. Your server is now fully set up and ready to use.",
+      actions: ["ONBOARDING_COMPLETE"],
       source: state.message.content.source,
     });
   }
@@ -559,7 +565,7 @@ async function generateSuccessResponse(
   worldSettings: WorldSettings,
   state: State,
   messages: string[],
-  callback: HandlerCallback
+  callback: HandlerCallback,
 ): Promise<void> {
   try {
     // Check if all required settings are now configured
@@ -573,12 +579,12 @@ async function generateSuccessResponse(
 
     const requiredUnconfiguredString = requiredUnconfigured
       .map(([key, setting]) => `${key}: ${setting.name}`)
-      .join('\n');
+      .join("\n");
 
     // Generate success message
     const prompt = composePrompt({
       state: {
-        updateMessages: messages.join('\n'),
+        updateMessages: messages.join("\n"),
         nextSetting: requiredUnconfiguredString,
         remainingRequired: requiredUnconfigured.length.toString(),
       },
@@ -593,15 +599,15 @@ async function generateSuccessResponse(
 
     await callback({
       text: responseContent.text,
-      actions: ['SETTING_UPDATED'],
-      source: 'discord',
+      actions: ["SETTING_UPDATED"],
+      source: "discord",
     });
   } catch (error) {
     logger.error(`Error generating success response: ${error}`);
     await callback({
-      text: 'Settings updated successfully. Please continue with the remaining configuration.',
-      actions: ['SETTING_UPDATED'],
-      source: 'discord',
+      text: "Settings updated successfully. Please continue with the remaining configuration.",
+      actions: ["SETTING_UPDATED"],
+      source: "discord",
     });
   }
 }
@@ -613,7 +619,7 @@ async function generateFailureResponse(
   runtime: IAgentRuntime,
   worldSettings: WorldSettings,
   state: State,
-  callback: HandlerCallback
+  callback: HandlerCallback,
 ): Promise<void> {
   try {
     // Get next required setting
@@ -627,7 +633,7 @@ async function generateFailureResponse(
 
     const requiredUnconfiguredString = requiredUnconfigured
       .map(([key, setting]) => `${key}: ${setting.name}`)
-      .join('\n');
+      .join("\n");
 
     // Generate failure message
     const prompt = composePrompt({
@@ -646,15 +652,15 @@ async function generateFailureResponse(
 
     await callback({
       text: responseContent.text,
-      actions: ['SETTING_UPDATE_FAILED'],
-      source: 'discord',
+      actions: ["SETTING_UPDATE_FAILED"],
+      source: "discord",
     });
   } catch (error) {
     logger.error(`Error generating failure response: ${error}`);
     await callback({
       text: "I couldn't understand your settings update. Please try again with a clearer format.",
-      actions: ['SETTING_UPDATE_FAILED'],
-      source: 'discord',
+      actions: ["SETTING_UPDATE_FAILED"],
+      source: "discord",
     });
   }
 }
@@ -665,7 +671,7 @@ async function generateFailureResponse(
 async function generateErrorResponse(
   runtime: IAgentRuntime,
   state: State,
-  callback: HandlerCallback
+  callback: HandlerCallback,
 ): Promise<void> {
   try {
     const prompt = composePromptFromState({
@@ -681,15 +687,15 @@ async function generateErrorResponse(
 
     await callback({
       text: responseContent.text,
-      actions: ['SETTING_UPDATE_ERROR'],
-      source: 'discord',
+      actions: ["SETTING_UPDATE_ERROR"],
+      source: "discord",
     });
   } catch (error) {
     logger.error(`Error generating error response: ${error}`);
     await callback({
       text: "I'm sorry, but I encountered an error while processing your request. Please try again or contact support if the issue persists.",
-      actions: ['SETTING_UPDATE_ERROR'],
-      source: 'discord',
+      actions: ["SETTING_UPDATE_ERROR"],
+      source: "discord",
     });
   }
 }
@@ -699,20 +705,28 @@ async function generateErrorResponse(
  * Updated to use world metadata instead of cache
  */
 export const updateSettingsAction: Action = {
-  name: 'UPDATE_SETTINGS',
-  similes: ['UPDATE_SETTING', 'SAVE_SETTING', 'SET_CONFIGURATION', 'CONFIGURE'],
+  name: "UPDATE_SETTINGS",
+  similes: ["UPDATE_SETTING", "SAVE_SETTING", "SET_CONFIGURATION", "CONFIGURE"],
   description:
-    'Saves a configuration setting during the onboarding process, or update an existing setting. Use this when you are onboarding with a world owner or admin.',
+    "Saves a configuration setting during the onboarding process, or update an existing setting. Use this when you are onboarding with a world owner or admin.",
 
-  validate: async (runtime: IAgentRuntime, message: Memory, _state: State): Promise<boolean> => {
+  validate: async (
+    runtime: IAgentRuntime,
+    message: Memory,
+    _state: State,
+  ): Promise<boolean> => {
     try {
       if (message.content.channelType !== ChannelType.DM) {
-        logger.debug(`Skipping settings in non-DM channel (type: ${message.content.channelType})`);
+        logger.debug(
+          `Skipping settings in non-DM channel (type: ${message.content.channelType})`,
+        );
         return false;
       }
 
       // Find the server where this user is the owner
-      logger.debug(`Looking for server where user ${message.entityId} is owner`);
+      logger.debug(
+        `Looking for server where user ${message.entityId} is owner`,
+      );
       const worlds = await findWorldsForOwner(runtime, message.entityId);
       if (!worlds) {
         return false;
@@ -741,7 +755,7 @@ export const updateSettingsAction: Action = {
     message: Memory,
     state: State,
     _options: any,
-    callback: HandlerCallback
+    callback: HandlerCallback,
   ): Promise<void> => {
     try {
       // Find the server where this user is the owner
@@ -761,14 +775,21 @@ export const updateSettingsAction: Action = {
       const worldSettings = await getWorldSettings(runtime, serverId);
 
       if (!worldSettings) {
-        logger.error(`No settings state found for server ${serverId} in handler`);
+        logger.error(
+          `No settings state found for server ${serverId} in handler`,
+        );
         await generateErrorResponse(runtime, state, callback);
         return;
       }
 
       // Extract setting values from message
       logger.info(`Extracting settings from message: ${message.content.text}`);
-      const extractedSettings = await extractSettingValues(runtime, message, state, worldSettings);
+      const extractedSettings = await extractSettingValues(
+        runtime,
+        message,
+        state,
+        worldSettings,
+      );
       logger.info(`Extracted ${extractedSettings.length} settings`);
 
       // Process extracted settings
@@ -776,17 +797,19 @@ export const updateSettingsAction: Action = {
         runtime,
         serverId,
         worldSettings,
-        extractedSettings
+        extractedSettings,
       );
 
       // Generate appropriate response
       if (updateResults.updatedAny) {
-        logger.info(`Successfully updated settings: ${updateResults.messages.join(', ')}`);
+        logger.info(
+          `Successfully updated settings: ${updateResults.messages.join(", ")}`,
+        );
 
         // Get updated settings state
         const updatedWorldSettings = await getWorldSettings(runtime, serverId);
         if (!updatedWorldSettings) {
-          logger.error('Failed to retrieve updated settings state');
+          logger.error("Failed to retrieve updated settings state");
           await generateErrorResponse(runtime, state, callback);
           return;
         }
@@ -796,10 +819,10 @@ export const updateSettingsAction: Action = {
           updatedWorldSettings,
           state,
           updateResults.messages,
-          callback
+          callback,
         );
       } else {
-        logger.info('No settings were updated');
+        logger.info("No settings were updated");
         await generateFailureResponse(runtime, worldSettings, state, callback);
       }
     } catch (error) {
@@ -810,171 +833,171 @@ export const updateSettingsAction: Action = {
   examples: [
     [
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
-          text: 'I want to set up the welcome channel to #general',
-          source: 'discord',
+          text: "I want to set up the welcome channel to #general",
+          source: "discord",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
           text: "Perfect! I've updated your welcome channel to #general. Next, we should configure the automated greeting message that new members will receive.",
-          actions: ['SETTING_UPDATED'],
-          source: 'discord',
+          actions: ["SETTING_UPDATED"],
+          source: "discord",
         },
       },
     ],
     [
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
           text: "Let's set the bot prefix to !",
-          source: 'discord',
+          source: "discord",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
           text: "Great choice! I've set the command prefix to '!'. Now you can use commands like !help, !info, etc.",
-          actions: ['SETTING_UPDATED'],
-          source: 'discord',
+          actions: ["SETTING_UPDATED"],
+          source: "discord",
         },
       },
     ],
     [
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
-          text: 'Enable auto-moderation for bad language',
-          source: 'discord',
+          text: "Enable auto-moderation for bad language",
+          source: "discord",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
           text: "Auto-moderation for inappropriate language has been enabled. I'll now filter messages containing offensive content.",
-          actions: ['SETTING_UPDATED'],
-          source: 'discord',
+          actions: ["SETTING_UPDATED"],
+          source: "discord",
         },
       },
     ],
     [
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
-          text: 'For server logs, use the #server-logs channel',
-          source: 'discord',
+          text: "For server logs, use the #server-logs channel",
+          source: "discord",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
           text: "I've configured #server-logs as your logging channel. All server events like joins, leaves, and moderation actions will be recorded there.",
-          actions: ['SETTING_UPDATED'],
-          source: 'discord',
+          actions: ["SETTING_UPDATED"],
+          source: "discord",
         },
       },
     ],
     [
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
           text: "I'd like to have role self-assignment in the #roles channel",
-          source: 'discord',
+          source: "discord",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
-          text: 'Role self-assignment has been set up in the #roles channel. Members can now assign themselves roles by interacting with messages there.',
-          actions: ['SETTING_UPDATED'],
-          source: 'discord',
+          text: "Role self-assignment has been set up in the #roles channel. Members can now assign themselves roles by interacting with messages there.",
+          actions: ["SETTING_UPDATED"],
+          source: "discord",
         },
       },
     ],
     [
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
-          text: 'Make music commands available in voice-text channels only',
-          source: 'discord',
+          text: "Make music commands available in voice-text channels only",
+          source: "discord",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
           text: "I've updated your music command settings - they'll now only work in voice-text channels. This helps keep other channels clear of music spam.",
-          actions: ['SETTING_UPDATED'],
-          source: 'discord',
+          actions: ["SETTING_UPDATED"],
+          source: "discord",
         },
       },
     ],
     [
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
-          text: 'For server timezone, set it to EST',
-          source: 'discord',
+          text: "For server timezone, set it to EST",
+          source: "discord",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
-          text: 'Server timezone has been set to Eastern Standard Time (EST). All scheduled events and timestamps will now display in this timezone.',
-          actions: ['SETTING_UPDATED'],
-          source: 'discord',
+          text: "Server timezone has been set to Eastern Standard Time (EST). All scheduled events and timestamps will now display in this timezone.",
+          actions: ["SETTING_UPDATED"],
+          source: "discord",
         },
       },
     ],
     [
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
-          text: 'Set verification level to email verified users only',
-          source: 'discord',
+          text: "Set verification level to email verified users only",
+          source: "discord",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
           text: "I've updated the verification requirement to email verified accounts only. This adds an extra layer of security to your server.",
-          actions: ['SETTING_UPDATED'],
-          source: 'discord',
+          actions: ["SETTING_UPDATED"],
+          source: "discord",
         },
       },
     ],
     [
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
-          text: 'I want to turn off level-up notifications',
-          source: 'discord',
+          text: "I want to turn off level-up notifications",
+          source: "discord",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
           text: "Level-up notifications have been disabled. Members will still earn experience and level up, but there won't be any automatic announcements. You can still view levels with the appropriate commands.",
-          actions: ['SETTING_UPDATED'],
-          source: 'discord',
+          actions: ["SETTING_UPDATED"],
+          source: "discord",
         },
       },
     ],
     [
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
           text: "My server name is 'Gaming Lounge'",
-          source: 'discord',
+          source: "discord",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
           text: "Great! I've saved 'Gaming Lounge' as your server name. This helps me personalize responses and know how to refer to your community. We've completed all the required settings! Your server is now fully configured and ready to use. You can always adjust these settings later if needed.",
-          actions: ['ONBOARDING_COMPLETE'],
-          source: 'discord',
+          actions: ["ONBOARDING_COMPLETE"],
+          source: "discord",
         },
       },
     ],

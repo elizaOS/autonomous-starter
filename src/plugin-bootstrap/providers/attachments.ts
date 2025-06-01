@@ -1,5 +1,5 @@
-import type { IAgentRuntime, Memory, Provider } from '@elizaos/core';
-import { addHeader } from '@elizaos/core';
+import type { IAgentRuntime, Memory, Provider } from "@elizaos/core";
+import { addHeader } from "@elizaos/core";
 
 /**
  * Provides a list of attachments sent during the current conversation, including names, descriptions, and summaries.
@@ -13,9 +13,9 @@ import { addHeader } from '@elizaos/core';
  * @returns {Object} An object containing values, data, and text about the attachments retrieved.
  */
 export const attachmentsProvider: Provider = {
-  name: 'ATTACHMENTS',
+  name: "ATTACHMENTS",
   description:
-    'List of attachments sent during the current conversation, including names, descriptions, and summaries',
+    "List of attachments sent during the current conversation, including names, descriptions, and summaries",
   dynamic: true,
   get: async (runtime: IAgentRuntime, message: Memory) => {
     // Start with any attachments in the current message
@@ -28,16 +28,17 @@ export const attachmentsProvider: Provider = {
       roomId,
       count: conversationLength,
       unique: false,
-      tableName: 'messages',
+      tableName: "messages",
     });
     // Process attachments from recent messages
     if (recentMessagesData && Array.isArray(recentMessagesData)) {
       const lastMessageWithAttachment = recentMessagesData.find(
-        (msg) => msg.content.attachments && msg.content.attachments.length > 0
+        (msg) => msg.content.attachments && msg.content.attachments.length > 0,
       );
 
       if (lastMessageWithAttachment) {
-        const lastMessageTime = lastMessageWithAttachment?.createdAt ?? Date.now();
+        const lastMessageTime =
+          lastMessageWithAttachment?.createdAt ?? Date.now();
         const oneHourBeforeLastMessage = lastMessageTime - 60 * 60 * 1000; // 1 hour before last message
 
         allAttachments = recentMessagesData.reverse().flatMap((msg) => {
@@ -46,7 +47,7 @@ export const attachmentsProvider: Provider = {
           const attachments = msg.content.attachments || [];
           if (!isWithinTime) {
             for (const attachment of attachments) {
-              attachment.text = '[Hidden]';
+              attachment.text = "[Hidden]";
             }
           }
           return attachments;
@@ -64,15 +65,15 @@ export const attachmentsProvider: Provider = {
     Type: ${attachment.source}
     Description: ${attachment.description}
     Text: ${attachment.text}
-    `
+    `,
       )
-      .join('\n');
+      .join("\n");
 
     // Create formatted text with header
     const text =
       formattedAttachments && formattedAttachments.length > 0
-        ? addHeader('# Attachments', formattedAttachments)
-        : '';
+        ? addHeader("# Attachments", formattedAttachments)
+        : "";
 
     const values = {
       attachments: text,

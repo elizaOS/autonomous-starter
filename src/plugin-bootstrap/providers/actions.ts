@@ -1,5 +1,16 @@
-import type { Action, IAgentRuntime, Memory, Provider, State } from '@elizaos/core';
-import { addHeader, composeActionExamples, formatActionNames, formatActions } from '@elizaos/core';
+import type {
+  Action,
+  IAgentRuntime,
+  Memory,
+  Provider,
+  State,
+} from "@elizaos/core";
+import {
+  addHeader,
+  composeActionExamples,
+  formatActionNames,
+  formatActions,
+} from "@elizaos/core";
 
 /**
  * Provider for ACTIONS
@@ -22,8 +33,8 @@ import { addHeader, composeActionExamples, formatActionNames, formatActions } fr
  * @returns {Object} Object containing data, values, and text related to actions
  */
 export const actionsProvider: Provider = {
-  name: 'ACTIONS',
-  description: 'Possible response actions',
+  name: "ACTIONS",
+  description: "Possible response actions",
   position: -1,
   get: async (runtime: IAgentRuntime, message: Memory, state: State) => {
     // Get actions that validate for this message
@@ -43,12 +54,14 @@ export const actionsProvider: Provider = {
     const actionNames = `Possible response actions: ${formatActionNames(actionsData)}`;
 
     const actions =
-      actionsData.length > 0 ? addHeader('# Available Actions', formatActions(actionsData)) : '';
+      actionsData.length > 0
+        ? addHeader("# Available Actions", formatActions(actionsData))
+        : "";
 
     const actionExamples =
       actionsData.length > 0
-        ? addHeader('# Action Examples', composeActionExamples(actionsData, 10))
-        : '';
+        ? addHeader("# Action Examples", composeActionExamples(actionsData, 10))
+        : "";
 
     const data = {
       actionsData,
@@ -61,7 +74,9 @@ export const actionsProvider: Provider = {
     };
 
     // Combine all text sections
-    const text = [actionNames, actionExamples, actions].filter(Boolean).join('\n\n');
+    const text = [actionNames, actionExamples, actions]
+      .filter(Boolean)
+      .join("\n\n");
 
     return {
       data,

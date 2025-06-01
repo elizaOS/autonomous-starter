@@ -18,8 +18,8 @@ import {
   ModelType,
   type State,
   type UUID,
-} from '@elizaos/core';
-import { v4 as uuidv4 } from 'uuid';
+} from "@elizaos/core";
+import { v4 as uuidv4 } from "uuid";
 
 /**
  * Component Template for Task: Extract Source and Update Component Data
@@ -122,29 +122,39 @@ Make sure to include the \`\`\`json\`\`\` tags around the JSON object.`;
  * ]
  */
 export const updateEntityAction: Action = {
-  name: 'UPDATE_CONTACT',
-  similes: ['UPDATE_ENTITY'],
+  name: "UPDATE_CONTACT",
+  similes: ["UPDATE_ENTITY"],
   description:
-    'Add or edit contact details for a person you are talking to or observing in the conversation. Use this when you learn this information from a contact. This is for the agent to relate entities across platforms, not for world settings or configuration.',
+    "Add or edit contact details for a person you are talking to or observing in the conversation. Use this when you learn this information from a contact. This is for the agent to relate entities across platforms, not for world settings or configuration.",
 
-  validate: async (runtime: IAgentRuntime, message: Memory, _state: State): Promise<boolean> => {
+  validate: async (
+    runtime: IAgentRuntime,
+    message: Memory,
+    _state: State,
+  ): Promise<boolean> => {
     // Check if we have any registered sources or existing components that could be updated
     const currentRoomWorldId = message.worldId;
     const agentId = runtime.agentId;
 
     if (!currentRoomWorldId) {
       logger.warn(
-        '[updateEntityAction] Validate: message.worldId is missing, cannot determine components.'
+        "[updateEntityAction] Validate: message.worldId is missing, cannot determine components.",
       );
       return false;
     }
 
     // Get all components for the current room's world to understand available sources
     // Components might represent existing contact details on different platforms for entities in this world.
-    const worldComponents = await runtime.getComponents(undefined, currentRoomWorldId, agentId);
+    const worldComponents = await runtime.getComponents(
+      undefined,
+      currentRoomWorldId,
+      agentId,
+    );
 
     // Get source types from world components
-    const availableSources = new Set(worldComponents.map((c) => c.type.toLowerCase()));
+    const availableSources = new Set(
+      worldComponents.map((c) => c.type.toLowerCase()),
+    );
 
     // TODO: Consider also checking runtime.getRegisteredSources() if that becomes available,
     // to allow updating even if no component of that type yet exists in the world.
@@ -158,7 +168,7 @@ export const updateEntityAction: Action = {
     state: State,
     _options: any,
     callback: HandlerCallback,
-    responses: Memory[]
+    responses: Memory[],
   ): Promise<void> => {
     try {
       // Handle initial responses
@@ -178,7 +188,7 @@ export const updateEntityAction: Action = {
       if (!entity) {
         await callback({
           text: "I'm not sure which entity you're trying to update. Could you please specify who you're talking about?",
-          actions: ['UPDATE_ENTITY_ERROR'],
+          actions: ["UPDATE_ENTITY_ERROR"],
           source: message.content.source,
         });
         return;
@@ -203,19 +213,19 @@ export const updateEntityAction: Action = {
       try {
         const jsonMatch = result.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
-          throw new Error('No valid JSON found in the LLM response');
+          throw new Error("No valid JSON found in the LLM response");
         }
 
         parsedResult = JSON.parse(jsonMatch[0]);
 
         if (!parsedResult.source || !parsedResult.data) {
-          throw new Error('Invalid response format - missing source or data');
+          throw new Error("Invalid response format - missing source or data");
         }
       } catch (error) {
         logger.error(`Failed to parse component data: ${error.message}`);
         await callback({
           text: "I couldn't properly understand the component information. Please try again with more specific information.",
-          actions: ['UPDATE_ENTITY_ERROR'],
+          actions: ["UPDATE_ENTITY_ERROR"],
           source: message.content.source,
         });
         return;
@@ -229,7 +239,7 @@ export const updateEntityAction: Action = {
         entity.id!,
         componentType,
         worldId,
-        sourceEntityId
+        sourceEntityId,
       );
 
       // Create or update the component
@@ -248,7 +258,7 @@ export const updateEntityAction: Action = {
 
         await callback({
           text: `I've updated the ${componentType} information for ${entity.names[0]}.`,
-          actions: ['UPDATE_ENTITY'],
+          actions: ["UPDATE_ENTITY"],
           source: message.content.source,
         });
       } else {
@@ -266,15 +276,15 @@ export const updateEntityAction: Action = {
 
         await callback({
           text: `I've added new ${componentType} information for ${entity.names[0]}.`,
-          actions: ['UPDATE_ENTITY'],
+          actions: ["UPDATE_ENTITY"],
           source: message.content.source,
         });
       }
     } catch (error) {
       logger.error(`Error in updateEntity handler: ${error}`);
       await callback({
-        text: 'There was an error processing the entity information.',
-        actions: ['UPDATE_ENTITY_ERROR'],
+        text: "There was an error processing the entity information.",
+        actions: ["UPDATE_ENTITY_ERROR"],
         source: message.content.source,
       });
     }
@@ -283,46 +293,46 @@ export const updateEntityAction: Action = {
   examples: [
     [
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
-          text: 'Please update my telegram username to @dev_guru',
+          text: "Please update my telegram username to @dev_guru",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
           text: "I've updated your telegram information.",
-          actions: ['UPDATE_ENTITY'],
+          actions: ["UPDATE_ENTITY"],
         },
       },
     ],
     [
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
           text: "Set Jimmy's twitter username to @jimmy_codes",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
           text: "I've updated Jimmy's twitter information.",
-          actions: ['UPDATE_ENTITY'],
+          actions: ["UPDATE_ENTITY"],
         },
       },
     ],
     [
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
-          text: 'Update my discord username to dev_guru#1234',
+          text: "Update my discord username to dev_guru#1234",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
           text: "I've updated your discord information.",
-          actions: ['UPDATE_ENTITY'],
+          actions: ["UPDATE_ENTITY"],
         },
       },
     ],

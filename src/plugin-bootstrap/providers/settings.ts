@@ -13,14 +13,17 @@ import {
   type Setting,
   type State,
   type WorldSettings,
-} from '@elizaos/core';
+} from "@elizaos/core";
 
 /**
  * Formats a setting value for display, respecting privacy flags
  */
-const formatSettingValue = (setting: Setting, isOnboarding: boolean): string => {
-  if (setting.value === null) return 'Not set';
-  if (setting.secret && !isOnboarding) return '****************';
+const formatSettingValue = (
+  setting: Setting,
+  isOnboarding: boolean,
+): string => {
+  if (setting.value === null) return "Not set";
+  if (setting.secret && !isOnboarding) return "****************";
   return String(setting.value);
 };
 
@@ -31,16 +34,16 @@ function generateStatusMessage(
   runtime: IAgentRuntime,
   worldSettings: WorldSettings,
   isOnboarding: boolean,
-  state?: State
+  state?: State,
 ): string {
   try {
     // Format settings for display
     const formattedSettings = Object.entries(worldSettings)
       .map(([key, setting]) => {
-        if (typeof setting !== 'object' || !setting.name) return null;
+        if (typeof setting !== "object" || !setting.name) return null;
 
-        const description = setting.description || '';
-        const usageDescription = setting.usageDescription || '';
+        const description = setting.description || "";
+        const usageDescription = setting.usageDescription || "";
 
         // Skip settings that should be hidden based on visibility function
         if (setting.visibleIf && !setting.visibleIf(worldSettings)) {
@@ -61,19 +64,19 @@ function generateStatusMessage(
 
     // Count required settings that are not configured
     const requiredUnconfigured = formattedSettings.filter(
-      (s) => s.required && !s.configured
+      (s) => s.required && !s.configured,
     ).length;
 
     // Generate appropriate message
     if (isOnboarding) {
       const settingsList = formattedSettings
         .map((s) => {
-          const label = s.required ? '(Required)' : '(Optional)';
+          const label = s.required ? "(Required)" : "(Optional)";
           return `${s.key}: ${s.value} ${label}\n(${s.name}) ${s.usageDescription}`;
         })
-        .join('\n\n');
+        .join("\n\n");
 
-      const validKeys = `Valid setting keys: ${Object.keys(worldSettings).join(', ')}`;
+      const validKeys = `Valid setting keys: ${Object.keys(worldSettings).join(", ")}`;
 
       const commonInstructions = `Instructions for ${runtime.character.name}:
       - Only update settings if the user is clearly responding to a setting you are currently asking about.
@@ -109,13 +112,16 @@ function generateStatusMessage(
     return `## Current Configuration\n\n${
       requiredUnconfigured > 0
         ? `IMPORTANT!: ${requiredUnconfigured} required settings still need configuration. ${runtime.character.name} should get onboarded with the OWNER as soon as possible.\n\n`
-        : 'All required settings are configured.\n\n'
+        : "All required settings are configured.\n\n"
     }${formattedSettings
-      .map((s) => `### ${s.name}\n**Value:** ${s.value}\n**Description:** ${s.description}`)
-      .join('\n\n')}`;
+      .map(
+        (s) =>
+          `### ${s.name}\n**Value:** ${s.value}\n**Description:** ${s.description}`,
+      )
+      .join("\n\n")}`;
   } catch (error) {
     logger.error(`Error generating status message: ${error}`);
-    return 'Error generating configuration status.';
+    return "Error generating configuration status.";
   }
 }
 
@@ -124,9 +130,13 @@ function generateStatusMessage(
  * Updated to use world metadata instead of cache
  */
 export const settingsProvider: Provider = {
-  name: 'SETTINGS',
-  description: 'Current settings for the server',
-  get: async (runtime: IAgentRuntime, message: Memory, state?: State): Promise<ProviderResult> => {
+  name: "SETTINGS",
+  description: "Current settings for the server",
+  get: async (
+    runtime: IAgentRuntime,
+    message: Memory,
+    state?: State,
+  ): Promise<ProviderResult> => {
     try {
       // Parallelize the initial database operations to improve performance
       // These operations can run simultaneously as they don't depend on each other
@@ -135,32 +145,35 @@ export const settingsProvider: Provider = {
         findWorldsForOwner(runtime, message.entityId),
       ]).catch((error) => {
         logger.error(`Error fetching initial data: ${error}`);
-        throw new Error('Failed to retrieve room or user world information');
+        throw new Error("Failed to retrieve room or user world information");
       });
 
       if (!room) {
-        logger.error('No room found for settings provider');
+        logger.error("No room found for settings provider");
         return {
           data: {
             settings: [],
           },
           values: {
-            settings: 'Error: Room not found',
+            settings: "Error: Room not found",
           },
-          text: 'Error: Room not found',
+          text: "Error: Room not found",
         };
       }
 
       if (!room.worldId) {
-        logger.debug('No world found for settings provider -- settings provider will be skipped');
+        logger.debug(
+          "No world found for settings provider -- settings provider will be skipped",
+        );
         return {
           data: {
             settings: [],
           },
           values: {
-            settings: 'Room does not have a worldId -- settings provider will be skipped',
+            settings:
+              "Room does not have a worldId -- settings provider will be skipped",
           },
-          text: 'Room does not have a worldId -- settings provider will be skipped',
+          text: "Room does not have a worldId -- settings provider will be skipped",
         };
       }
 
@@ -176,8 +189,8 @@ export const settingsProvider: Provider = {
         world = userWorlds.find((world) => world.metadata.settings);
 
         if (!world) {
-          logger.error('No world found for user during onboarding');
-          throw new Error('No server ownership found for onboarding');
+          logger.error("No world found for user during onboarding");
+          throw new Error("No server ownership found for onboarding");
         }
 
         serverId = world.serverId;
@@ -209,14 +222,14 @@ export const settingsProvider: Provider = {
           }
         } catch (error) {
           logger.error(`Error processing world data: ${error}`);
-          throw new Error('Failed to process world information');
+          throw new Error("Failed to process world information");
         }
       }
 
       // If no server found after recovery attempts
       if (!serverId) {
         logger.info(
-          `No server ownership found for user ${message.entityId} after recovery attempt`
+          `No server ownership found for user ${message.entityId} after recovery attempt`,
         );
         return isOnboarding
           ? {
@@ -234,9 +247,9 @@ export const settingsProvider: Provider = {
                 settings: [],
               },
               values: {
-                settings: 'Error: No configuration access',
+                settings: "Error: No configuration access",
               },
-              text: 'Error: No configuration access',
+              text: "Error: No configuration access",
             };
       }
 
@@ -258,14 +271,19 @@ export const settingsProvider: Provider = {
                 settings: [],
               },
               values: {
-                settings: 'Configuration has not been completed yet.',
+                settings: "Configuration has not been completed yet.",
               },
-              text: 'Configuration has not been completed yet.',
+              text: "Configuration has not been completed yet.",
             };
       }
 
       // Generate the status message based on the settings
-      const output = generateStatusMessage(runtime, worldSettings, isOnboarding, state);
+      const output = generateStatusMessage(
+        runtime,
+        worldSettings,
+        isOnboarding,
+        state,
+      );
 
       return {
         data: {
@@ -283,9 +301,10 @@ export const settingsProvider: Provider = {
           settings: [],
         },
         values: {
-          settings: 'Error retrieving configuration information. Please try again later.',
+          settings:
+            "Error retrieving configuration information. Please try again later.",
         },
-        text: 'Error retrieving configuration information. Please try again later.',
+        text: "Error retrieving configuration information. Please try again later.",
       };
     }
   },

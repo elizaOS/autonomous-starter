@@ -6,37 +6,41 @@ import {
   logger,
   addHeader,
   ChannelType,
-} from '@elizaos/core';
+} from "@elizaos/core";
 
 /**
  * Provider that exposes relevant world/environment information to agents.
  * Includes details like channel list, world name, and other world metadata.
  */
 export const worldProvider: Provider = {
-  name: 'WORLD',
-  description: 'World and environment information',
+  name: "WORLD",
+  description: "World and environment information",
   dynamic: true,
 
   get: async (runtime: IAgentRuntime, message: Memory) => {
     try {
-      logger.debug('🌐 World provider activated for roomId:', message.roomId);
+      logger.debug("🌐 World provider activated for roomId:", message.roomId);
 
       // Get the current room from the message
       const currentRoom = await runtime.getRoom(message.roomId);
 
       if (!currentRoom) {
-        logger.warn(`World provider: Room not found for roomId ${message.roomId}`);
+        logger.warn(
+          `World provider: Room not found for roomId ${message.roomId}`,
+        );
         return {
           data: {
             world: {
-              info: 'Unable to retrieve world information - room not found',
+              info: "Unable to retrieve world information - room not found",
             },
           },
-          text: 'Unable to retrieve world information - room not found',
+          text: "Unable to retrieve world information - room not found",
         };
       }
 
-      logger.debug(`🌐 World provider: Found room "${currentRoom.name}" (${currentRoom.type})`);
+      logger.debug(
+        `🌐 World provider: Found room "${currentRoom.name}" (${currentRoom.type})`,
+      );
 
       // Get the world for the current room
       const worldId = currentRoom.worldId;
@@ -47,23 +51,27 @@ export const worldProvider: Provider = {
         return {
           data: {
             world: {
-              info: 'Unable to retrieve world information - world not found',
+              info: "Unable to retrieve world information - world not found",
             },
           },
-          text: 'Unable to retrieve world information - world not found',
+          text: "Unable to retrieve world information - world not found",
         };
       }
 
-      logger.debug(`🌐 World provider: Found world "${world.name}" (ID: ${world.id})`);
+      logger.debug(
+        `🌐 World provider: Found world "${world.name}" (ID: ${world.id})`,
+      );
 
       // Get all rooms in the current world
       const worldRooms = await runtime.getRooms(worldId);
-      logger.debug(`🌐 World provider: Found ${worldRooms.length} rooms in world "${world.name}"`);
+      logger.debug(
+        `🌐 World provider: Found ${worldRooms.length} rooms in world "${world.name}"`,
+      );
 
       // Get participants for the current room
       const participants = await runtime.getParticipantsForRoom(message.roomId);
       logger.debug(
-        `🌐 World provider: Found ${participants.length} participants in room "${currentRoom.name}"`
+        `🌐 World provider: Found ${participants.length} participants in room "${currentRoom.name}"`,
       );
 
       // Format rooms by type
@@ -98,9 +106,15 @@ export const worldProvider: Provider = {
           room.type === ChannelType.FORUM
         ) {
           channelsByType.text.push(roomInfo);
-        } else if (room.type === ChannelType.VOICE_GROUP || room.type === ChannelType.VOICE_DM) {
+        } else if (
+          room.type === ChannelType.VOICE_GROUP ||
+          room.type === ChannelType.VOICE_DM
+        ) {
           channelsByType.voice.push(roomInfo);
-        } else if (room.type === ChannelType.DM || room.type === ChannelType.SELF) {
+        } else if (
+          room.type === ChannelType.DM ||
+          room.type === ChannelType.SELF
+        ) {
           channelsByType.dm.push(roomInfo);
         } else if (room.type === ChannelType.FEED) {
           channelsByType.feed.push(roomInfo);
@@ -120,14 +134,14 @@ export const worldProvider: Provider = {
         `Current Channel: ${currentRoom.name} (${currentRoom.type})`,
         `Total Channels: ${worldRooms.length}`,
         `Participants in current channel: ${participants.length}`,
-        '',
+        "",
         `Text channels: ${channelsByType.text.length}`,
         `Voice channels: ${channelsByType.voice.length}`,
         `DM channels: ${channelsByType.dm.length}`,
         `Feed channels: ${channelsByType.feed.length}`,
         `Thread channels: ${channelsByType.thread.length}`,
         `Other channels: ${channelsByType.other.length}`,
-      ].join('\n');
+      ].join("\n");
 
       // Build the world information object with formatted data
       const data = {
@@ -163,9 +177,9 @@ export const worldProvider: Provider = {
       };
 
       // Use addHeader like in entitiesProvider
-      const formattedText = addHeader('# World Information', worldInfoText);
+      const formattedText = addHeader("# World Information", worldInfoText);
 
-      logger.debug('🌐 World provider completed successfully');
+      logger.debug("🌐 World provider completed successfully");
 
       return {
         data,
@@ -174,16 +188,16 @@ export const worldProvider: Provider = {
       };
     } catch (error) {
       logger.error(
-        `Error in world provider: ${error instanceof Error ? error.message : String(error)}`
+        `Error in world provider: ${error instanceof Error ? error.message : String(error)}`,
       );
       return {
         data: {
           world: {
-            info: 'Error retrieving world information',
-            error: error instanceof Error ? error.message : 'Unknown error',
+            info: "Error retrieving world information",
+            error: error instanceof Error ? error.message : "Unknown error",
           },
         },
-        text: 'Error retrieving world information',
+        text: "Error retrieving world information",
       };
     }
   },

@@ -11,9 +11,9 @@ import {
   type Memory,
   type Provider,
   type UUID,
-} from '@elizaos/core';
+} from "@elizaos/core";
 
-const AUTO_ROOM_SEED = 'autonomous_room_singleton'; // Ensure this matches service.ts
+const AUTO_ROOM_SEED = "autonomous_room_singleton"; // Ensure this matches service.ts
 
 /**
  * A provider object that retrieves recent messages, interactions, and memories based on a given message.
@@ -27,8 +27,8 @@ const AUTO_ROOM_SEED = 'autonomous_room_singleton'; // Ensure this matches servi
  * @returns {object} An object containing data, values, and text sections.
  */
 export const autonomousFeedProvider: Provider = {
-  name: 'AUTONOMOUS_FEED',
-  description: 'Raw feed of messages, interactions and other memories',
+  name: "AUTONOMOUS_FEED",
+  description: "Raw feed of messages, interactions and other memories",
   position: 100,
   get: async (runtime: IAgentRuntime, message: Memory) => {
     const autonomousRoomId = createUniqueUuid(runtime, AUTO_ROOM_SEED);
@@ -39,7 +39,7 @@ export const autonomousFeedProvider: Provider = {
       getEntityDetails({ runtime, roomId: autonomousRoomId }),
       runtime.getRoom(autonomousRoomId),
       runtime.getMemories({
-        tableName: 'messages',
+        tableName: "messages",
         roomId: autonomousRoomId,
         count: conversationLength,
         unique: false,
@@ -53,12 +53,12 @@ export const autonomousFeedProvider: Provider = {
     });
 
     const metaData = message.metadata as CustomMetadata;
-    const senderName = metaData?.entityName || 'Autonomous Loop Prompt';
+    const senderName = metaData?.entityName || "Autonomous Loop Prompt";
 
     const recentMessages =
       formattedRecentMessages && formattedRecentMessages.length > 0
-        ? addHeader('# Conversation Messages', formattedRecentMessages)
-        : '';
+        ? addHeader("# Conversation Messages", formattedRecentMessages)
+        : "";
 
     const data = {
       recentMessages: recentMessagesData,
@@ -69,9 +69,9 @@ export const autonomousFeedProvider: Provider = {
     };
 
     // Combine all text sections
-    const text = [recentMessages].filter(Boolean).join('\n\n');
+    const text = [recentMessages].filter(Boolean).join("\n\n");
 
-    console.log('MESSAGE FEED TEXT: ', text);
+    console.log("MESSAGE FEED TEXT: ", text);
 
     return {
       data,

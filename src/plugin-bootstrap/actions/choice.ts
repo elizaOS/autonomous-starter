@@ -13,7 +13,7 @@ import {
   parseKeyValueXml,
   type State,
   type UUID,
-} from '@elizaos/core';
+} from "@elizaos/core";
 
 /**
  * Task: Extract selected task and option from user message
@@ -88,19 +88,24 @@ Your response MUST ONLY include the <response> XML block.
  * @property {ActionExample[][]} examples - Examples demonstrating the usage of the action
  */
 export const choiceAction: Action = {
-  name: 'CHOOSE_OPTION',
-  similes: ['SELECT_OPTION', 'SELECT', 'PICK', 'CHOOSE'],
-  description: 'Selects an option for a pending task that has multiple options',
+  name: "CHOOSE_OPTION",
+  similes: ["SELECT_OPTION", "SELECT", "PICK", "CHOOSE"],
+  description: "Selects an option for a pending task that has multiple options",
 
-  validate: async (runtime: IAgentRuntime, message: Memory, state: State): Promise<boolean> => {
+  validate: async (
+    runtime: IAgentRuntime,
+    message: Memory,
+    state: State,
+  ): Promise<boolean> => {
     // Get all tasks tagged AWAITING_CHOICE
     const pendingTasks = await runtime.getTasks({
       roomId: message.roomId,
-      tags: ['AWAITING_CHOICE'],
+      tags: ["AWAITING_CHOICE"],
     });
 
     // Filter for tasks that actually have options defined in metadata
-    const tasksWithOptions = pendingTasks?.filter((task) => task.metadata?.options) || [];
+    const tasksWithOptions =
+      pendingTasks?.filter((task) => task.metadata?.options) || [];
 
     // If no tasks are actually awaiting a choice with options, fail validation
     if (tasksWithOptions.length === 0) {
@@ -111,9 +116,9 @@ export const choiceAction: Action = {
     // Check if ANY of the pending tasks are TODO confirmations
     const isTodoConfirmationPending = tasksWithOptions.some(
       (task) =>
-        task.tags?.includes('todo_confirmation') ||
-        task.tags?.includes('todo_update') ||
-        task.tags?.includes('todo_cancellation')
+        task.tags?.includes("todo_confirmation") ||
+        task.tags?.includes("todo_update") ||
+        task.tags?.includes("todo_cancellation"),
     );
 
     // If it IS a TODO confirmation, allow any user (skip role check)
@@ -129,38 +134,48 @@ export const choiceAction: Action = {
     state: State,
     _options: any,
     callback: HandlerCallback,
-    responses: Memory[]
+    responses: Memory[],
   ): Promise<void> => {
-    logger.info(`[choiceAction] Handler started for message: "${message.content.text}"`);
+    logger.info(
+      `[choiceAction] Handler started for message: "${message.content.text}"`,
+    );
     try {
       const pendingTasks = await runtime.getTasks({
         roomId: message.roomId,
-        tags: ['AWAITING_CHOICE'],
+        tags: ["AWAITING_CHOICE"],
       });
 
       if (!pendingTasks?.length) {
         // This case should ideally be caught by validate, but double-check
-        logger.warn('[choiceAction] No pending tasks found in handler, though validation passed.');
+        logger.warn(
+          "[choiceAction] No pending tasks found in handler, though validation passed.",
+        );
         await callback({
           text: "I don't see any pending choices right now.",
-          actions: ['NONE'],
+          actions: ["NONE"],
           source: message.content.source,
         });
         return;
       }
 
-      const tasksWithOptions = pendingTasks.filter((task) => task.metadata?.options);
+      const tasksWithOptions = pendingTasks.filter(
+        (task) => task.metadata?.options,
+      );
 
       if (!tasksWithOptions.length) {
-        logger.warn('[choiceAction] Pending tasks found, but none have options metadata.');
+        logger.warn(
+          "[choiceAction] Pending tasks found, but none have options metadata.",
+        );
         await callback({
-          text: 'I found pending tasks, but none seem to have options to choose from.',
-          actions: ['NONE'],
+          text: "I found pending tasks, but none seem to have options to choose from.",
+          actions: ["NONE"],
           source: message.content.source,
         });
         return;
       }
-      logger.debug(`[choiceAction] Found ${tasksWithOptions.length} tasks with options.`);
+      logger.debug(
+        `[choiceAction] Found ${tasksWithOptions.length} tasks with options.`,
+      );
 
       let taskId: string | null = null;
       let selectedOption: string | null = null;
@@ -171,12 +186,17 @@ export const choiceAction: Action = {
         // --- Case 1: Only one pending task ---
         const singleTask = tasksWithOptions[0];
         targetTaskFullId = singleTask.id; // We know the full ID
-        const availableOptions = ((singleTask.metadata.options as any[]) || []).map((opt) =>
-          typeof opt === 'string'
+        const availableOptions = (
+          (singleTask.metadata.options as any[]) || []
+        ).map((opt) =>
+          typeof opt === "string"
             ? { name: opt, description: opt }
-            : { name: opt.name, description: opt.description || opt.name }
+            : { name: opt.name, description: opt.description || opt.name },
         );
-        availableOptions.push({ name: 'ABORT', description: 'Cancel this task' }); // Add ABORT
+        availableOptions.push({
+          name: "ABORT",
+          description: "Cancel this task",
+        }); // Add ABORT
 
         const simplePrompt = `# Task: Extract selected option for task \"${singleTask.name}\"
 
@@ -184,7 +204,7 @@ export const choiceAction: Action = {
 ${message.content.text}
 
 ## Available Options for this task:
-${availableOptions.map((opt) => `- ${opt.name}: ${opt.description}`).join('\n')}
+${availableOptions.map((opt) => `- ${opt.name}: ${opt.description}`).join("\n")}
 
 # Instructions:
 1. Review the user's message.
@@ -198,18 +218,23 @@ Return an XML response like this:
 
 Your response MUST ONLY include the <response> XML block.`;
 
-        logger.debug('[choiceAction] Using simple prompt for single task:', simplePrompt);
+        logger.debug(
+          "[choiceAction] Using simple prompt for single task:",
+          simplePrompt,
+        );
         const result = await runtime.useModel(ModelType.TEXT_SMALL, {
           prompt: simplePrompt,
           stopSequences: [],
         });
         const parsed = parseKeyValueXml(result);
-        logger.debug('[choiceAction] Simple XML Parsing Result:', parsed);
+        logger.debug("[choiceAction] Simple XML Parsing Result:", parsed);
         if (parsed && parsed.selectedOption) {
           selectedOption = parsed.selectedOption;
           // We already know the targetTaskFullId
         } else {
-          logger.warn('[choiceAction] Failed to extract option even for single task.');
+          logger.warn(
+            "[choiceAction] Failed to extract option even for single task.",
+          );
         }
       } else {
         // --- Case 2: Multiple pending tasks (Original Logic) ---
@@ -225,12 +250,16 @@ Your response MUST ONLY include the <response> XML block.`;
                 fullId: task.id,
                 name: task.name,
                 options: optionsMeta.map((opt) => ({
-                  name: typeof opt === 'string' ? opt : opt.name,
-                  description: typeof opt === 'string' ? opt : opt.description || opt.name,
+                  name: typeof opt === "string" ? opt : opt.name,
+                  description:
+                    typeof opt === "string" ? opt : opt.description || opt.name,
                 })),
               };
             } catch (mapError) {
-              logger.error(`[choiceAction] Error formatting task ${task?.id}:`, mapError);
+              logger.error(
+                `[choiceAction] Error formatting task ${task?.id}:`,
+                mapError,
+              );
               return null; // Return null for failed tasks
             }
           })
@@ -240,7 +269,10 @@ Your response MUST ONLY include the <response> XML block.`;
 
         const prompt = composePromptFromState({
           state: {
-            values: { tasks: formattedTasks, recentMessages: message.content.text },
+            values: {
+              tasks: formattedTasks,
+              recentMessages: message.content.text,
+            },
             data: {},
             text: message.content.text,
           },
@@ -253,11 +285,13 @@ Your response MUST ONLY include the <response> XML block.`;
         });
 
         const parsed = parseKeyValueXml(result);
-        logger.debug('[choiceAction] Multi-task XML Parsing Result:', parsed);
+        logger.debug("[choiceAction] Multi-task XML Parsing Result:", parsed);
 
         if (parsed && parsed.taskId && parsed.selectedOption) {
           // Find the task by matching the shortened UUID
-          const taskMap = new Map(formattedTasks.map((task) => [task.taskId, task]));
+          const taskMap = new Map(
+            formattedTasks.map((task) => [task.taskId, task]),
+          );
           const taskInfo = taskMap.get(parsed.taskId);
           if (taskInfo) {
             taskId = parsed.taskId; // Short ID from parse
@@ -265,12 +299,12 @@ Your response MUST ONLY include the <response> XML block.`;
             targetTaskFullId = taskInfo.fullId; // Get full ID from map
           } else {
             logger.warn(
-              `[choiceAction] Could not find task matching parsed shortId: ${parsed.taskId}`
+              `[choiceAction] Could not find task matching parsed shortId: ${parsed.taskId}`,
             );
           }
         } else {
           logger.warn(
-            '[choiceAction] Failed to parse valid taskId and selectedOption from multi-task XML response.'
+            "[choiceAction] Failed to parse valid taskId and selectedOption from multi-task XML response.",
           );
         }
       }
@@ -279,30 +313,32 @@ Your response MUST ONLY include the <response> XML block.`;
       // --- Proceed if we have a selection and a target task ---
       if (targetTaskFullId && selectedOption) {
         logger.debug(
-          `[choiceAction] Proceeding - TaskId: ${targetTaskFullId}, Option: ${selectedOption}`
+          `[choiceAction] Proceeding - TaskId: ${targetTaskFullId}, Option: ${selectedOption}`,
         );
 
         // Find the actual task object using the full ID
-        const selectedTask = tasksWithOptions.find((task) => task.id === targetTaskFullId);
+        const selectedTask = tasksWithOptions.find(
+          (task) => task.id === targetTaskFullId,
+        );
 
         if (!selectedTask) {
           // Should not happen if targetTaskFullId is set, but check anyway
           logger.error(
-            `[choiceAction] Internal error: Could not re-find task with full ID ${targetTaskFullId}`
+            `[choiceAction] Internal error: Could not re-find task with full ID ${targetTaskFullId}`,
           );
           await callback({
-            text: 'An internal error occurred. Please try again.',
-            actions: ['SELECT_OPTION_ERROR'],
+            text: "An internal error occurred. Please try again.",
+            actions: ["SELECT_OPTION_ERROR"],
             source: message.content.source,
           });
           return;
         }
 
-        if (selectedOption === 'ABORT') {
+        if (selectedOption === "ABORT") {
           await runtime.deleteTask(selectedTask.id);
           await callback({
             text: `Task "${selectedTask.name}" has been cancelled.`,
-            actions: ['CHOOSE_OPTION_CANCELLED'],
+            actions: ["CHOOSE_OPTION_CANCELLED"],
             source: message.content.source,
           });
           return;
@@ -311,54 +347,63 @@ Your response MUST ONLY include the <response> XML block.`;
         // --- Update Task for Specific Handler Worker ---
         const originalAction = selectedTask.metadata?.originalAction as string;
         const originalMetadata = { ...selectedTask.metadata }; // Copy metadata
-        logger.debug(`[choiceAction] Original Action: ${originalAction}`, originalMetadata); // Log original action and metadata
+        logger.debug(
+          `[choiceAction] Original Action: ${originalAction}`,
+          originalMetadata,
+        ); // Log original action and metadata
 
         if (!originalAction) {
           logger.error(
-            `Task ${selectedTask.id} is awaiting choice but missing originalAction metadata.`
+            `Task ${selectedTask.id} is awaiting choice but missing originalAction metadata.`,
           );
           await callback({
-            text: 'Error: Could not determine the original action for this choice.',
-            actions: ['SELECT_OPTION_ERROR'],
+            text: "Error: Could not determine the original action for this choice.",
+            actions: ["SELECT_OPTION_ERROR"],
             source: message.content.source,
           });
           return;
         }
 
         // Determine the target handler worker name based on the original action
-        let handlerWorkerName = '';
+        let handlerWorkerName = "";
         switch (originalAction) {
-          case 'CREATE_TODO':
-            handlerWorkerName = 'HANDLE_TODO_CREATION_CONFIRM';
+          case "CREATE_TODO":
+            handlerWorkerName = "HANDLE_TODO_CREATION_CONFIRM";
             break;
-          case 'UPDATE_TODO':
-            handlerWorkerName = 'HANDLE_TODO_UPDATE_CONFIRM';
+          case "UPDATE_TODO":
+            handlerWorkerName = "HANDLE_TODO_UPDATE_CONFIRM";
             break;
-          case 'CANCEL_TODO':
-            handlerWorkerName = 'HANDLE_TODO_CANCELLATION_CONFIRM';
+          case "CANCEL_TODO":
+            handlerWorkerName = "HANDLE_TODO_CANCELLATION_CONFIRM";
             break;
           // Add cases for other actions that use this confirmation flow
-          case 'TWITTER_POST': // Example if twitter post uses this too
+          case "TWITTER_POST": // Example if twitter post uses this too
             // Assuming the twitter post task is named 'Confirm Twitter Post'
             // We might need a different approach if it registers its own worker directly.
             // For now, let's assume it needs a handler worker if it followed this pattern.
-            handlerWorkerName = 'HANDLE_TWITTER_POST_CONFIRM';
+            handlerWorkerName = "HANDLE_TWITTER_POST_CONFIRM";
             break;
           default:
-            logger.error(`No handler worker defined for originalAction: ${originalAction}`);
+            logger.error(
+              `No handler worker defined for originalAction: ${originalAction}`,
+            );
             await callback({
               text: `Error: Cannot process choice for action type ${originalAction}.`,
-              actions: ['SELECT_OPTION_ERROR'],
+              actions: ["SELECT_OPTION_ERROR"],
               source: message.content.source,
             });
             return;
         }
 
-        logger.debug(`[choiceAction] Determined handler worker name: ${handlerWorkerName}`); // Log worker name determination
+        logger.debug(
+          `[choiceAction] Determined handler worker name: ${handlerWorkerName}`,
+        ); // Log worker name determination
 
         // Update the task: change name, remove AWAITING_CHOICE, add selected option to metadata
-        const updatedTags = (selectedTask.tags || []).filter((tag) => tag !== 'AWAITING_CHOICE');
-        updatedTags.push('CHOICE_MADE'); // Optional: Indicate choice was processed
+        const updatedTags = (selectedTask.tags || []).filter(
+          (tag) => tag !== "AWAITING_CHOICE",
+        );
+        updatedTags.push("CHOICE_MADE"); // Optional: Indicate choice was processed
 
         const updatedMetadata = {
           ...originalMetadata,
@@ -372,52 +417,55 @@ Your response MUST ONLY include the <response> XML block.`;
             metadata: updatedMetadata,
           });
           logger.info(
-            `[choiceAction] Successfully updated task ${selectedTask.id} to trigger worker ${handlerWorkerName} with option ${selectedOption}`
+            `[choiceAction] Successfully updated task ${selectedTask.id} to trigger worker ${handlerWorkerName} with option ${selectedOption}`,
           ); // Log success
 
           // Optionally provide immediate feedback, or let the handler worker provide it.
           // A simple acknowledgement might be good here.
           await callback({
             text: `Got it. Processing your choice: ${selectedOption}`,
-            actions: ['CHOOSE_OPTION_PROCESSING'], // New action status
+            actions: ["CHOOSE_OPTION_PROCESSING"], // New action status
             source: message.content.source,
           });
         } catch (updateError) {
           logger.error(
             `[choiceAction] Failed to update task ${selectedTask.id} to trigger handler:`,
-            updateError
+            updateError,
           ); // Log update error
           await callback({
-            text: 'Sorry, there was an error recording your choice. Please try again.',
-            actions: ['SELECT_OPTION_ERROR'],
+            text: "Sorry, there was an error recording your choice. Please try again.",
+            actions: ["SELECT_OPTION_ERROR"],
             source: message.content.source,
           });
         }
       } else {
         // Fallback: If no valid selection could be determined after trying single/multi prompts
-        logger.warn('[choiceAction] No valid selection determined. Listing options.');
-        let optionsText = 'Please select a valid option from one of these tasks:\n\n';
+        logger.warn(
+          "[choiceAction] No valid selection determined. Listing options.",
+        );
+        let optionsText =
+          "Please select a valid option from one of these tasks:\n\n";
         tasksWithOptions.forEach((task) => {
           const shortId = task.id.substring(0, 8);
           optionsText += `**${task.name}** (ID: ${shortId}):\n`;
-          const options = ((task.metadata.options as any[]) || []).map((opt: any) =>
-            typeof opt === 'string' ? opt : opt.name
+          const options = ((task.metadata.options as any[]) || []).map(
+            (opt: any) => (typeof opt === "string" ? opt : opt.name),
           );
-          options.push('ABORT');
-          optionsText += options.map((opt: any) => `- ${opt}`).join('\n');
-          optionsText += '\n\n';
+          options.push("ABORT");
+          optionsText += options.map((opt: any) => `- ${opt}`).join("\n");
+          optionsText += "\n\n";
         });
         await callback({
           text: optionsText,
-          actions: ['SELECT_OPTION_INVALID'],
+          actions: ["SELECT_OPTION_INVALID"],
           source: message.content.source,
         });
       }
     } catch (error) {
-      logger.error('Error in select option handler:', error);
+      logger.error("Error in select option handler:", error);
       await callback({
-        text: 'There was an error processing the option selection.',
-        actions: ['SELECT_OPTION_ERROR'],
+        text: "There was an error processing the option selection.",
+        actions: ["SELECT_OPTION_ERROR"],
         source: message.content.source,
       });
     }
@@ -426,31 +474,31 @@ Your response MUST ONLY include the <response> XML block.`;
   examples: [
     [
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
-          text: 'post',
+          text: "post",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
-          text: 'Selected option: post for task: Confirm Twitter Post',
-          actions: ['CHOOSE_OPTION'],
+          text: "Selected option: post for task: Confirm Twitter Post",
+          actions: ["CHOOSE_OPTION"],
         },
       },
     ],
     [
       {
-        name: '{{name1}}',
+        name: "{{name1}}",
         content: {
-          text: 'I choose cancel',
+          text: "I choose cancel",
         },
       },
       {
-        name: '{{name2}}',
+        name: "{{name2}}",
         content: {
-          text: 'Selected option: cancel for task: Confirm Twitter Post',
-          actions: ['CHOOSE_OPTION'],
+          text: "Selected option: cancel for task: Confirm Twitter Post",
+          actions: ["CHOOSE_OPTION"],
         },
       },
     ],
