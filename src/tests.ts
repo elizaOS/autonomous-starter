@@ -176,6 +176,54 @@ export class StarterTestSuite implements TestSuite {
         }
       },
     },
+    {
+      name: 'Robot service availability',
+      fn: async (runtime: IAgentRuntime) => {
+        const service = runtime.getService('ROBOT');
+        if (!service) {
+          throw new Error('Robot service not found');
+        }
+      },
+    },
+    {
+      name: 'Screen provider test',
+      fn: async (runtime: IAgentRuntime) => {
+        const provider = runtime.providers.find((p) => p.name === 'SCREEN_CONTEXT');
+        if (!provider) {
+          throw new Error('SCREEN_CONTEXT provider not found');
+        }
+        const message: Memory = {
+          entityId: uuidv4() as UUID,
+          roomId: uuidv4() as UUID,
+          content: { text: 'check screen' },
+        };
+        const state: State = { values: {}, data: {}, text: '' };
+        const result = await provider.get(runtime, message, state);
+        if (!result || typeof result.text !== 'string') {
+          throw new Error('Invalid screen provider result');
+        }
+      },
+    },
+    {
+      name: 'Perform screen action action test',
+      fn: async (runtime: IAgentRuntime) => {
+        const action = runtime.actions.find((a) => a.name === 'PERFORM_SCREEN_ACTION');
+        if (!action) {
+          throw new Error('PERFORM_SCREEN_ACTION not found');
+        }
+        await action.handler(
+          runtime,
+          {
+            entityId: uuidv4() as UUID,
+            roomId: uuidv4() as UUID,
+            content: { text: 'do it', actions: ['PERFORM_SCREEN_ACTION'] },
+          },
+          { values: {}, data: {}, text: '' },
+          { steps: [] },
+          async () => []
+        );
+      },
+    },
   ];
 }
 
