@@ -1,6 +1,10 @@
-export const generateActionCode = (name: string, description: string, parameters?: Record<string, any>): string => {
+export const generateActionCode = (
+  name: string,
+  description: string,
+  parameters?: Record<string, any>,
+): string => {
   const camelCaseName = name.charAt(0).toLowerCase() + name.slice(1);
-  
+
   return `import {
   Action,
   IAgentRuntime,
@@ -16,7 +20,7 @@ export const ${camelCaseName}Action: Action = {
   similes: [
     // Add similar phrases that might trigger this action
     "${name.toLowerCase()}",
-    "${description.toLowerCase().split(' ').slice(0, 3).join(' ')}"
+    "${description.toLowerCase().split(" ").slice(0, 3).join(" ")}"
   ],
   examples: [
     [
@@ -51,9 +55,13 @@ export const ${camelCaseName}Action: Action = {
   ): Promise<string> => {
     try {
       // TODO: Implement ${name} logic here
-      ${parameters ? `
+      ${
+        parameters
+          ? `
       // Expected parameters: ${JSON.stringify(parameters, null, 2)}
-      ` : ''}
+      `
+          : ""
+      }
       
       // Placeholder implementation
       const result = "Successfully executed ${name}";
@@ -81,9 +89,13 @@ export const ${camelCaseName}Action: Action = {
 `;
 };
 
-export const generateProviderCode = (name: string, description: string, dataStructure?: Record<string, any>): string => {
+export const generateProviderCode = (
+  name: string,
+  description: string,
+  dataStructure?: Record<string, any>,
+): string => {
   const camelCaseName = name.charAt(0).toLowerCase() + name.slice(1);
-  
+
   return `import {
   Provider,
   IAgentRuntime,
@@ -102,9 +114,13 @@ export const ${camelCaseName}Provider: Provider = {
   ): Promise<ProviderResult> => {
     try {
       // TODO: Implement ${name} provider logic
-      ${dataStructure ? `
+      ${
+        dataStructure
+          ? `
       // Expected data structure: ${JSON.stringify(dataStructure, null, 2)}
-      ` : ''}
+      `
+          : ""
+      }
       
       const data = {
         // Collect relevant data here
@@ -127,9 +143,13 @@ export const ${camelCaseName}Provider: Provider = {
 `;
 };
 
-export const generateServiceCode = (name: string, description: string, methods?: string[]): string => {
+export const generateServiceCode = (
+  name: string,
+  description: string,
+  methods?: string[],
+): string => {
   const className = name.charAt(0).toUpperCase() + name.slice(1);
-  
+
   return `import { Service, IAgentRuntime, logger } from "@elizaos/core";
 
 // Extend the ServiceTypeRegistry for this service
@@ -165,22 +185,34 @@ export class ${className} extends Service {
     // TODO: Initialize service resources
   }
   
-  ${methods ? methods.map(method => `
+  ${
+    methods
+      ? methods
+          .map(
+            (method) => `
   async ${method}(...args: any[]): Promise<any> {
     // TODO: Implement ${method}
     logger.info(\`${className}.${method} called\`);
     return null;
   }
-  `).join('\n') : ''}
+  `,
+          )
+          .join("\n")
+      : ""
+  }
   
   // TODO: Add custom service methods here
 }
 `;
 };
 
-export const generateEvaluatorCode = (name: string, description: string, triggers?: string[]): string => {
+export const generateEvaluatorCode = (
+  name: string,
+  description: string,
+  triggers?: string[],
+): string => {
   const camelCaseName = name.charAt(0).toLowerCase() + name.slice(1);
-  
+
   return `import {
   Evaluator,
   IAgentRuntime,
@@ -194,7 +226,7 @@ export const ${camelCaseName}Evaluator: Evaluator = {
   description: "${description}",
   similes: [
     "${name.toLowerCase()}",
-    "${description.toLowerCase().split(' ').slice(0, 3).join(' ')}"
+    "${description.toLowerCase().split(" ").slice(0, 3).join(" ")}"
   ],
   examples: [
     {
@@ -216,9 +248,13 @@ export const ${camelCaseName}Evaluator: Evaluator = {
     state?: State
   ): Promise<boolean> => {
     // TODO: Add validation logic for when this evaluator should run
-    ${triggers && triggers.length > 0 ? `
-    // Configured triggers: ${triggers.join(', ')}
-    ` : ''}
+    ${
+      triggers && triggers.length > 0
+        ? `
+    // Configured triggers: ${triggers.join(", ")}
+    `
+        : ""
+    }
     return true;
   },
   handler: async (
@@ -251,71 +287,106 @@ export const ${camelCaseName}Evaluator: Evaluator = {
 `;
 };
 
-export const generatePluginIndex = (pluginName: string, specification: any): string => {
-  const cleanPluginName = pluginName.replace(/^@[^/]+\//, '').replace(/[-_]/g, '');
-  const pluginClassName = cleanPluginName.charAt(0).toUpperCase() + cleanPluginName.slice(1) + 'Plugin';
-  
+export const generatePluginIndex = (
+  pluginName: string,
+  specification: any,
+): string => {
+  const cleanPluginName = pluginName
+    .replace(/^@[^/]+\//, "")
+    .replace(/[-_]/g, "");
+  const pluginClassName =
+    cleanPluginName.charAt(0).toUpperCase() +
+    cleanPluginName.slice(1) +
+    "Plugin";
+
   const imports: string[] = [];
   const exports: string[] = [];
-  
+
   if (specification.actions?.length) {
     specification.actions.forEach((action: any) => {
-      const camelCaseName = action.name.charAt(0).toLowerCase() + action.name.slice(1);
-      imports.push(`import { ${camelCaseName}Action } from './actions/${action.name}';`);
+      const camelCaseName =
+        action.name.charAt(0).toLowerCase() + action.name.slice(1);
+      imports.push(
+        `import { ${camelCaseName}Action } from './actions/${action.name}';`,
+      );
       exports.push(`${camelCaseName}Action`);
     });
   }
-  
+
   if (specification.providers?.length) {
     specification.providers.forEach((provider: any) => {
-      const camelCaseName = provider.name.charAt(0).toLowerCase() + provider.name.slice(1);
-      imports.push(`import { ${camelCaseName}Provider } from './providers/${provider.name}';`);
+      const camelCaseName =
+        provider.name.charAt(0).toLowerCase() + provider.name.slice(1);
+      imports.push(
+        `import { ${camelCaseName}Provider } from './providers/${provider.name}';`,
+      );
       exports.push(`${camelCaseName}Provider`);
     });
   }
-  
+
   if (specification.services?.length) {
     specification.services.forEach((service: any) => {
-      imports.push(`import { ${service.name} } from './services/${service.name}';`);
+      imports.push(
+        `import { ${service.name} } from './services/${service.name}';`,
+      );
       exports.push(`${service.name}`);
     });
   }
-  
+
   if (specification.evaluators?.length) {
     specification.evaluators.forEach((evaluator: any) => {
-      const camelCaseName = evaluator.name.charAt(0).toLowerCase() + evaluator.name.slice(1);
-      imports.push(`import { ${camelCaseName}Evaluator } from './evaluators/${evaluator.name}';`);
+      const camelCaseName =
+        evaluator.name.charAt(0).toLowerCase() + evaluator.name.slice(1);
+      imports.push(
+        `import { ${camelCaseName}Evaluator } from './evaluators/${evaluator.name}';`,
+      );
       exports.push(`${camelCaseName}Evaluator`);
     });
   }
-  
+
   return `import { Plugin } from "@elizaos/core";
-${imports.join('\n')}
+${imports.join("\n")}
 
 export const ${pluginClassName}: Plugin = {
   name: "${pluginName}",
   description: "${specification.description}",
-  ${specification.actions?.length ? `
+  ${
+    specification.actions?.length
+      ? `
   actions: [
-    ${specification.actions.map((a: any) => `${a.name.charAt(0).toLowerCase() + a.name.slice(1)}Action`).join(',\n    ')}
-  ],` : ''}
-  ${specification.providers?.length ? `
+    ${specification.actions.map((a: any) => `${a.name.charAt(0).toLowerCase() + a.name.slice(1)}Action`).join(",\n    ")}
+  ],`
+      : ""
+  }
+  ${
+    specification.providers?.length
+      ? `
   providers: [
-    ${specification.providers.map((p: any) => `${p.name.charAt(0).toLowerCase() + p.name.slice(1)}Provider`).join(',\n    ')}
-  ],` : ''}
-  ${specification.services?.length ? `
+    ${specification.providers.map((p: any) => `${p.name.charAt(0).toLowerCase() + p.name.slice(1)}Provider`).join(",\n    ")}
+  ],`
+      : ""
+  }
+  ${
+    specification.services?.length
+      ? `
   services: [
-    ${specification.services.map((s: any) => `${s.name}`).join(',\n    ')}
-  ],` : ''}
-  ${specification.evaluators?.length ? `
+    ${specification.services.map((s: any) => `${s.name}`).join(",\n    ")}
+  ],`
+      : ""
+  }
+  ${
+    specification.evaluators?.length
+      ? `
   evaluators: [
-    ${specification.evaluators.map((e: any) => `${e.name.charAt(0).toLowerCase() + e.name.slice(1)}Evaluator`).join(',\n    ')}
-  ]` : ''}
+    ${specification.evaluators.map((e: any) => `${e.name.charAt(0).toLowerCase() + e.name.slice(1)}Evaluator`).join(",\n    ")}
+  ]`
+      : ""
+  }
 };
 
 // Export individual components for direct use
 export {
-  ${exports.join(',\n  ')}
+  ${exports.join(",\n  ")}
 };
 
 // Default export
@@ -323,10 +394,14 @@ export default ${pluginClassName};
 `;
 };
 
-export const generateTestCode = (componentName: string, componentType: string): string => {
-  const camelCaseName = componentName.charAt(0).toLowerCase() + componentName.slice(1);
+export const generateTestCode = (
+  componentName: string,
+  componentType: string,
+): string => {
+  const camelCaseName =
+    componentName.charAt(0).toLowerCase() + componentName.slice(1);
   const typeLower = componentType.toLowerCase();
-  
+
   return `import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ${camelCaseName}${componentType} } from '../${typeLower}s/${componentName}';
 import { IAgentRuntime, Memory, State } from '@elizaos/core';
@@ -367,7 +442,9 @@ describe('${componentName}${componentType}', () => {
     expect(${camelCaseName}${componentType}.name).toBe('${componentName}');
   });
   
-  ${componentType === 'Action' ? `
+  ${
+    componentType === "Action"
+      ? `
   describe('validate', () => {
     it('should validate valid input', async () => {
       const message = createMockMemory('test input');
@@ -396,9 +473,13 @@ describe('${componentName}${componentType}', () => {
       expect(typeof result).toBe('string');
     });
   });
-  ` : ''}
+  `
+      : ""
+  }
   
-  ${componentType === 'Provider' ? `
+  ${
+    componentType === "Provider"
+      ? `
   describe('get', () => {
     it('should provide data', async () => {
       const message = createMockMemory('test');
@@ -415,9 +496,13 @@ describe('${componentName}${componentType}', () => {
       expect(result.text).toBeDefined();
     });
   });
-  ` : ''}
+  `
+      : ""
+  }
   
-  ${componentType === 'Evaluator' ? `
+  ${
+    componentType === "Evaluator"
+      ? `
   describe('validate', () => {
     it('should validate when appropriate', async () => {
       const message = createMockMemory('test evaluation');
@@ -433,7 +518,9 @@ describe('${componentName}${componentType}', () => {
       expect(result).toContain('evaluation');
     });
   });
-  ` : ''}
+  `
+      : ""
+  }
   
   // TODO: Add more specific tests based on the component's functionality
 });

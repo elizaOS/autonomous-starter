@@ -43,13 +43,13 @@ describe("TodoReminderService", () => {
 
   it("should start and setup timer for periodic checks", async () => {
     service = await TodoReminderService.start(mockRuntime);
-    
+
     // Service should be running
     expect(service).toBeInstanceOf(TodoReminderService);
-    
+
     // Manual check should work
     await service.checkTasksNow();
-    
+
     expect(mockRuntime.getTasks).toHaveBeenCalledWith({ tags: ["one-off"] });
   });
 
@@ -99,7 +99,7 @@ describe("TodoReminderService", () => {
   it("should respect reminder cooldown period", async () => {
     const overdueDate = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
     const recentReminderDate = new Date(Date.now() - 12 * 60 * 60 * 1000); // 12 hours ago
-    
+
     const mockTasks: Task[] = [
       {
         id: "task1" as any,
@@ -172,10 +172,10 @@ describe("TodoReminderService", () => {
     mockRuntime.getTasks = vi.fn().mockResolvedValue(mockTasks);
 
     service = await TodoReminderService.start(mockRuntime);
-    
+
     // Should not throw error
     await expect(service.checkTasksNow()).resolves.not.toThrow();
-    
+
     // Should not send any reminders for invalid dates
     expect(mockRuntime.emitEvent).not.toHaveBeenCalled();
   });
@@ -204,10 +204,12 @@ describe("TodoReminderService", () => {
   });
 
   it("should handle errors in checkOverdueTasks gracefully", async () => {
-    mockRuntime.getTasks = vi.fn().mockRejectedValue(new Error("Database error"));
+    mockRuntime.getTasks = vi
+      .fn()
+      .mockRejectedValue(new Error("Database error"));
 
     service = await TodoReminderService.start(mockRuntime);
-    
+
     // Should not throw error
     await expect(service.checkTasksNow()).resolves.not.toThrow();
   });
@@ -216,10 +218,12 @@ describe("TodoReminderService", () => {
     service = await TodoReminderService.start(mockRuntime);
     mockRuntime.getService = vi.fn().mockReturnValue(service);
     const stopSpy = vi.spyOn(service, "stop");
-    
+
     await TodoReminderService.stop(mockRuntime);
-    
-    expect(mockRuntime.getService).toHaveBeenCalledWith(TodoReminderService.serviceType);
+
+    expect(mockRuntime.getService).toHaveBeenCalledWith(
+      TodoReminderService.serviceType,
+    );
     expect(stopSpy).toHaveBeenCalled();
   });
-}); 
+});

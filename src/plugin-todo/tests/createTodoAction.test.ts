@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createTodoAction } from "../actions/createTodo";
-import type { IAgentRuntime, Memory, State, HandlerCallback } from "@elizaos/core";
+import type {
+  IAgentRuntime,
+  Memory,
+  State,
+  HandlerCallback,
+} from "@elizaos/core";
 import { ModelType, ChannelType } from "@elizaos/core";
 
 describe("createTodoAction", () => {
@@ -10,7 +15,7 @@ describe("createTodoAction", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    
+
     mockRuntime = {
       agentId: "test-agent" as any,
       getTasks: vi.fn().mockResolvedValue([]),
@@ -47,7 +52,7 @@ describe("createTodoAction", () => {
     const message: Memory = {
       content: { text: "Add todo" },
     } as any;
-    
+
     const result = await createTodoAction.validate(mockRuntime, message);
     expect(result).toBe(true);
   });
@@ -93,7 +98,7 @@ describe("createTodoAction", () => {
 
     // Verify success callback
     expect(mockCallback).toHaveBeenCalledWith({
-      text: expect.stringContaining("Added new daily task: \"Do 50 pushups\""),
+      text: expect.stringContaining('Added new daily task: "Do 50 pushups"'),
       actions: ["CREATE_TODO_SUCCESS"],
       source: "test",
     });
@@ -142,7 +147,9 @@ describe("createTodoAction", () => {
 
     // Verify success callback
     expect(mockCallback).toHaveBeenCalledWith({
-      text: expect.stringMatching(/Added new one-off task.*Finish taxes.*Priority 2.*Due:/),
+      text: expect.stringMatching(
+        /Added new one-off task.*Finish taxes.*Priority 2.*Due:/,
+      ),
       actions: ["CREATE_TODO_SUCCESS"],
       source: "test",
     });
@@ -185,7 +192,9 @@ describe("createTodoAction", () => {
 
     // Verify success callback
     expect(mockCallback).toHaveBeenCalledWith({
-      text: expect.stringMatching(/Added new aspirational goal.*Read more books/),
+      text: expect.stringMatching(
+        /Added new aspirational goal.*Read more books/,
+      ),
       actions: ["CREATE_TODO_SUCCESS"],
       source: "test",
     });
@@ -227,7 +236,9 @@ describe("createTodoAction", () => {
 
     // Verify duplicate warning callback
     expect(mockCallback).toHaveBeenCalledWith({
-      text: expect.stringContaining("already have an active task named \"Clean house\""),
+      text: expect.stringContaining(
+        'already have an active task named "Clean house"',
+      ),
       actions: ["CREATE_TODO_DUPLICATE"],
       source: "test",
     });
@@ -349,7 +360,12 @@ describe("createTodoAction", () => {
     // Verify urgent tag was added
     expect(mockRuntime.createTask).toHaveBeenCalledWith(
       expect.objectContaining({
-        tags: expect.arrayContaining(["TODO", "one-off", "priority-1", "urgent"]),
+        tags: expect.arrayContaining([
+          "TODO",
+          "one-off",
+          "priority-1",
+          "urgent",
+        ]),
       }),
     );
   });
@@ -383,4 +399,4 @@ describe("createTodoAction", () => {
       }),
     );
   });
-}); 
+});

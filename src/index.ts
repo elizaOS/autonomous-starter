@@ -17,7 +17,7 @@ import { envPlugin } from "./plugin-env/index.js";
 import { experiencePlugin } from "./plugin-experience/index.js";
 import { pluginManagerPlugin } from "./plugin-manager/index.js";
 import { robotPlugin } from "./plugin-robot/index.js";
-import { selfModificationPlugin } from './plugin-self-modification';
+import { selfModificationPlugin } from "./plugin-self-modification";
 import { shellPlugin } from "./plugin-shell/index.js";
 import { TodoPlugin } from "./plugin-todo/index.js";
 
@@ -173,11 +173,13 @@ export const character: Character = {
 };
 
 const initCharacter = ({ runtime }: { runtime: IAgentRuntime }) => {
-  logger.info('Initializing character');
-  logger.info('Name: ', character.name);
-  
+  logger.info("Initializing character");
+  logger.info("Name: ", character.name);
+
   // Log that self-modification is enabled
-  logger.info('Self-modification capability enabled - Autoliza can now evolve and adapt her personality through experience');
+  logger.info(
+    "Self-modification capability enabled - Autoliza can now evolve and adapt her personality through experience",
+  );
 };
 
 export const projectAgent: ProjectAgent = {

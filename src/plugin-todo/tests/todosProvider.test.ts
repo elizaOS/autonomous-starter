@@ -9,7 +9,7 @@ describe("todosProvider", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    
+
     mockRuntime = {
       agentId: "test-agent" as any,
       getTasks: vi.fn(),
@@ -28,7 +28,9 @@ describe("todosProvider", () => {
 
   it("should have correct provider properties", () => {
     expect(todosProvider.name).toBe("TODOS");
-    expect(todosProvider.description).toBe("Information about the user's current tasks, completed tasks, and points");
+    expect(todosProvider.description).toBe(
+      "Information about the user's current tasks, completed tasks, and points",
+    );
     expect(todosProvider.get).toBeInstanceOf(Function);
   });
 
@@ -84,22 +86,22 @@ describe("todosProvider", () => {
 
     expect(result.text).toContain("User's Todos");
     expect(result.text).toContain("Points: 0");
-    
+
     // Check daily tasks
     expect(result.text).toContain("Daily Todos");
     expect(result.text).toContain("Daily Exercise");
     expect(result.text).toContain("daily, streak: 5 days");
-    
+
     // Check one-off tasks
     expect(result.text).toContain("One-off Todos");
     expect(result.text).toContain("Finish Report");
     expect(result.text).toContain("P2");
     expect(result.text).toContain("due");
-    
+
     // Check aspirational tasks
     expect(result.text).toContain("Aspirational Todos");
     expect(result.text).toContain("Read More Books");
-    
+
     // Check data object
     expect(result.data).toEqual({
       tasks: mockTasks,
@@ -277,4 +279,4 @@ describe("todosProvider", () => {
 
     expect(result.text).toContain("URGENT");
   });
-}); 
+});

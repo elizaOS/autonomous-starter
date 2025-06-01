@@ -21,10 +21,7 @@ export const pluginDynamic: Plugin = {
     cancelPluginCreationAction,
     createPluginFromDescriptionAction,
   ],
-  providers: [
-    pluginCreationStatusProvider,
-    pluginCreationCapabilitiesProvider,
-  ],
+  providers: [pluginCreationStatusProvider, pluginCreationCapabilitiesProvider],
   services: [PluginCreationService],
   evaluators: [],
 };

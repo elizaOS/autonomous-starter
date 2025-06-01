@@ -13,22 +13,25 @@ This plugin enables ElizaOS agents to autonomously create new plugins using AI-d
 ## Installation
 
 1. Install the plugin in your ElizaOS project:
+
 ```bash
 npm install @elizaos/plugin-dynamic
 ```
 
 2. Set up your environment variables:
+
 ```bash
 ANTHROPIC_API_KEY=your_api_key_here
 ```
 
 3. Register the plugin in your agent configuration:
+
 ```typescript
 import { pluginDynamic } from "@elizaos/plugin-dynamic";
 
 const agent = new Agent({
-    plugins: [pluginDynamic],
-    // ... other configuration
+  plugins: [pluginDynamic],
+  // ... other configuration
 });
 ```
 
@@ -101,9 +104,11 @@ Agent: Plugin creation job has been cancelled.
 ## Actions
 
 ### createPlugin
+
 Creates a new plugin from a JSON specification.
 
 **Parameters:**
+
 - `name`: Plugin name (e.g., "@elizaos/plugin-example")
 - `description`: Plugin description
 - `version`: Plugin version (default: "1.0.0")
@@ -115,20 +120,25 @@ Creates a new plugin from a JSON specification.
 - `environmentVariables`: Required environment variables
 
 ### checkPluginCreationStatus
+
 Checks the status of the current plugin creation job.
 
 ### cancelPluginCreation
+
 Cancels the current plugin creation job.
 
 ### createPluginFromDescription
+
 Creates a plugin from a natural language description.
 
 ## Providers
 
 ### plugin_creation_status
+
 Provides the current status of active plugin creation jobs.
 
 ### plugin_creation_capabilities
+
 Provides information about the plugin creation service capabilities.
 
 ## Architecture
@@ -170,6 +180,7 @@ plugin-dynamic/
 ### Service Configuration
 
 The plugin creation service can be configured with:
+
 - `maxIterations`: Maximum refinement iterations (default: 5)
 - `timeout`: Job timeout in milliseconds
 - `workspace`: Custom workspace directory
@@ -180,36 +191,36 @@ The plugin creation service can be configured with:
 
 ```typescript
 const specification = {
-    name: "@elizaos/plugin-database",
-    description: "Database operations plugin",
-    actions: [
-        {
-            name: "queryDatabase",
-            description: "Execute a database query",
-            parameters: {
-                query: "string",
-                params: "array"
-            }
-        }
-    ],
-    services: [
-        {
-            name: "DatabaseService",
-            description: "Manages database connections",
-            methods: ["connect", "disconnect", "query"]
-        }
-    ],
-    dependencies: {
-        "pg": "^8.0.0"
+  name: "@elizaos/plugin-database",
+  description: "Database operations plugin",
+  actions: [
+    {
+      name: "queryDatabase",
+      description: "Execute a database query",
+      parameters: {
+        query: "string",
+        params: "array",
+      },
     },
-    environmentVariables: [
-        {
-            name: "DATABASE_URL",
-            description: "PostgreSQL connection string",
-            required: true,
-            sensitive: true
-        }
-    ]
+  ],
+  services: [
+    {
+      name: "DatabaseService",
+      description: "Manages database connections",
+      methods: ["connect", "disconnect", "query"],
+    },
+  ],
+  dependencies: {
+    pg: "^8.0.0",
+  },
+  environmentVariables: [
+    {
+      name: "DATABASE_URL",
+      description: "PostgreSQL connection string",
+      required: true,
+      sensitive: true,
+    },
+  ],
 };
 ```
 
@@ -217,25 +228,25 @@ const specification = {
 
 ```typescript
 const specification = {
-    name: "@elizaos/plugin-api",
-    description: "External API integration",
-    actions: [
-        {
-            name: "callAPI",
-            description: "Make an API request",
-            parameters: {
-                endpoint: "string",
-                method: "string",
-                body: "object"
-            }
-        }
-    ],
-    providers: [
-        {
-            name: "apiResponse",
-            description: "Provides latest API response data"
-        }
-    ]
+  name: "@elizaos/plugin-api",
+  description: "External API integration",
+  actions: [
+    {
+      name: "callAPI",
+      description: "Make an API request",
+      parameters: {
+        endpoint: "string",
+        method: "string",
+        body: "object",
+      },
+    },
+  ],
+  providers: [
+    {
+      name: "apiResponse",
+      description: "Provides latest API response data",
+    },
+  ],
 };
 ```
 
@@ -244,10 +255,12 @@ const specification = {
 ### Common Issues
 
 1. **"Plugin creation service not available"**
+
    - Ensure the plugin is properly registered
    - Check that the service has been initialized
 
 2. **"AI code generation not available"**
+
    - Verify ANTHROPIC_API_KEY is set
    - Check API key validity
 
@@ -259,6 +272,7 @@ const specification = {
 ### Debug Mode
 
 Enable debug logging:
+
 ```typescript
 process.env.DEBUG = "elizaos:plugin-dynamic:*";
 ```

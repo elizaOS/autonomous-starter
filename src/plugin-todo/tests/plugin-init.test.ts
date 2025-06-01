@@ -11,7 +11,7 @@ describe("TodoPlugin Initialization", () => {
     vi.clearAllMocks();
     taskWorkerId = undefined;
     registeredTaskWorker = undefined;
-    
+
     mockRuntime = {
       agentId: "test-agent" as any,
       getSetting: vi.fn(),
@@ -117,7 +117,7 @@ describe("TodoPlugin Initialization", () => {
 
       // Verify only the completed daily task was reset
       expect(mockRuntime.updateTask).toHaveBeenCalled();
-      
+
       // Check the first call arguments
       const firstCall = (mockRuntime.updateTask as any).mock.calls[0];
       expect(firstCall[0]).toBe("task1");
@@ -130,13 +130,15 @@ describe("TodoPlugin Initialization", () => {
       mockRuntime.getTasks = vi.fn().mockResolvedValue([]);
 
       await registeredTaskWorker.execute(mockRuntime);
-      
+
       expect(mockRuntime.getTasks).toHaveBeenCalled();
       expect(mockRuntime.updateTask).not.toHaveBeenCalled();
     });
 
     it("should handle errors in task reset", async () => {
-      mockRuntime.getTasks = vi.fn().mockRejectedValue(new Error("Database error"));
+      mockRuntime.getTasks = vi
+        .fn()
+        .mockRejectedValue(new Error("Database error"));
 
       // Should not throw, just log error
       await registeredTaskWorker.execute(mockRuntime);
@@ -183,18 +185,15 @@ describe("TodoPlugin Initialization", () => {
 
       await registeredTaskWorker.execute(mockRuntime);
 
-      expect(mockRuntime.updateTask).toHaveBeenCalledWith(
-        "task1",
-        {
-          tags: ["daily", "TODO"],
-          metadata: {
-            completedToday: false,
-            streak: 10,
-            customField: "should-be-preserved",
-            notes: "User notes",
-          },
+      expect(mockRuntime.updateTask).toHaveBeenCalledWith("task1", {
+        tags: ["daily", "TODO"],
+        metadata: {
+          completedToday: false,
+          streak: 10,
+          customField: "should-be-preserved",
+          notes: "User notes",
         },
-      );
+      });
     });
   });
-}); 
+});

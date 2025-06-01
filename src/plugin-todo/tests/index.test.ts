@@ -26,7 +26,9 @@ describe("TodoPlugin", () => {
 
   it("should have all required services", () => {
     expect(TodoPlugin.services).toContain(TodoService);
-    expect(TodoPlugin.services.some((s) => s.name === "TodoReminderService")).toBe(true);
+    expect(
+      TodoPlugin.services.some((s) => s.name === "TodoReminderService"),
+    ).toBe(true);
   });
 });
 
@@ -67,8 +69,10 @@ describe("TodoService", () => {
   it("should stop service via static method", async () => {
     const service = await TodoService.start(mockRuntime);
     mockRuntime.getService = vi.fn().mockReturnValue(service);
-    
+
     await TodoService.stop(mockRuntime);
-    expect(mockRuntime.getService).toHaveBeenCalledWith(TodoService.serviceType);
+    expect(mockRuntime.getService).toHaveBeenCalledWith(
+      TodoService.serviceType,
+    );
   });
-}); 
+});

@@ -3,7 +3,7 @@ import {
   IAgentRuntime,
   Memory,
   State,
-  HandlerCallback
+  HandlerCallback,
 } from "@elizaos/core";
 import {
   PluginCreationService,
@@ -14,36 +14,76 @@ import { validatePrompt, isValidJsonSpecification } from "../utils/validation";
 
 // Zod schema for plugin specification validation
 const PluginSpecificationSchema = z.object({
-  name: z.string().regex(/^@?[a-zA-Z0-9-_]+\/[a-zA-Z0-9-_]+$/, "Invalid plugin name format"),
+  name: z
+    .string()
+    .regex(/^@?[a-zA-Z0-9-_]+\/[a-zA-Z0-9-_]+$/, "Invalid plugin name format"),
   description: z.string().min(10, "Description must be at least 10 characters"),
-  version: z.string().regex(/^\d+\.\d+\.\d+$/, "Version must be in semver format").optional().default("1.0.0"),
-  actions: z.array(z.object({
-    name: z.string().regex(/^[a-zA-Z][a-zA-Z0-9]*$/, "Action name must be alphanumeric"),
-    description: z.string(),
-    parameters: z.record(z.any()).optional()
-  })).optional(),
-  providers: z.array(z.object({
-    name: z.string().regex(/^[a-zA-Z][a-zA-Z0-9]*$/, "Provider name must be alphanumeric"),
-    description: z.string(),
-    dataStructure: z.record(z.any()).optional()
-  })).optional(),
-  services: z.array(z.object({
-    name: z.string().regex(/^[a-zA-Z][a-zA-Z0-9]*$/, "Service name must be alphanumeric"),
-    description: z.string(),
-    methods: z.array(z.string()).optional()
-  })).optional(),
-  evaluators: z.array(z.object({
-    name: z.string().regex(/^[a-zA-Z][a-zA-Z0-9]*$/, "Evaluator name must be alphanumeric"),
-    description: z.string(),
-    triggers: z.array(z.string()).optional()
-  })).optional(),
+  version: z
+    .string()
+    .regex(/^\d+\.\d+\.\d+$/, "Version must be in semver format")
+    .optional()
+    .default("1.0.0"),
+  actions: z
+    .array(
+      z.object({
+        name: z
+          .string()
+          .regex(/^[a-zA-Z][a-zA-Z0-9]*$/, "Action name must be alphanumeric"),
+        description: z.string(),
+        parameters: z.record(z.any()).optional(),
+      }),
+    )
+    .optional(),
+  providers: z
+    .array(
+      z.object({
+        name: z
+          .string()
+          .regex(
+            /^[a-zA-Z][a-zA-Z0-9]*$/,
+            "Provider name must be alphanumeric",
+          ),
+        description: z.string(),
+        dataStructure: z.record(z.any()).optional(),
+      }),
+    )
+    .optional(),
+  services: z
+    .array(
+      z.object({
+        name: z
+          .string()
+          .regex(/^[a-zA-Z][a-zA-Z0-9]*$/, "Service name must be alphanumeric"),
+        description: z.string(),
+        methods: z.array(z.string()).optional(),
+      }),
+    )
+    .optional(),
+  evaluators: z
+    .array(
+      z.object({
+        name: z
+          .string()
+          .regex(
+            /^[a-zA-Z][a-zA-Z0-9]*$/,
+            "Evaluator name must be alphanumeric",
+          ),
+        description: z.string(),
+        triggers: z.array(z.string()).optional(),
+      }),
+    )
+    .optional(),
   dependencies: z.record(z.string()).optional(),
-  environmentVariables: z.array(z.object({
-    name: z.string(),
-    description: z.string(),
-    required: z.boolean(),
-    sensitive: z.boolean()
-  })).optional()
+  environmentVariables: z
+    .array(
+      z.object({
+        name: z.string(),
+        description: z.string(),
+        required: z.boolean(),
+        sensitive: z.boolean(),
+      }),
+    )
+    .optional(),
 });
 
 export const createPluginAction: Action = {
@@ -55,51 +95,55 @@ export const createPluginAction: Action = {
     "make plugin",
     "develop plugin",
     "create extension",
-    "build extension"
+    "build extension",
   ],
   examples: [
     [
       {
         name: "user",
         content: {
-          text: "Create a plugin for managing user preferences"
-        }
+          text: "Create a plugin for managing user preferences",
+        },
       },
       {
         name: "agent",
         content: {
-          text: "I'll create a user preferences management plugin for you. Let me start by generating the necessary components..."
-        }
-      }
+          text: "I'll create a user preferences management plugin for you. Let me start by generating the necessary components...",
+        },
+      },
     ],
     [
       {
         name: "user",
         content: {
-          text: "Build a plugin that adds weather information capabilities"
-        }
+          text: "Build a plugin that adds weather information capabilities",
+        },
       },
       {
         name: "agent",
         content: {
-          text: "I'll create a weather information plugin with actions for fetching current weather, forecasts, and weather alerts."
-        }
-      }
-    ]
+          text: "I'll create a weather information plugin with actions for fetching current weather, forecasts, and weather alerts.",
+        },
+      },
+    ],
   ],
   validate: async (
     runtime: IAgentRuntime,
     message: Memory,
-    state?: State
+    state?: State,
   ): Promise<boolean> => {
-    const service = runtime.services.get("plugin_creation") as PluginCreationService;
+    const service = runtime.services.get(
+      "plugin_creation",
+    ) as PluginCreationService;
     if (!service) {
       return false;
     }
 
     // Check if there's already an active job
     const jobs = service.getAllJobs();
-    const activeJob = jobs.find(job => job.status === "running" || job.status === "pending");
+    const activeJob = jobs.find(
+      (job) => job.status === "running" || job.status === "pending",
+    );
     if (activeJob) {
       return false;
     }
@@ -116,10 +160,12 @@ export const createPluginAction: Action = {
     message: Memory,
     state?: State,
     options?: { [key: string]: unknown },
-    callback?: HandlerCallback
+    callback?: HandlerCallback,
   ): Promise<string> => {
     try {
-      const service = runtime.services.get("plugin_creation") as PluginCreationService;
+      const service = runtime.services.get(
+        "plugin_creation",
+      ) as PluginCreationService;
       if (!service) {
         return "Plugin creation service not available. Please ensure the plugin is properly installed.";
       }
@@ -128,10 +174,12 @@ export const createPluginAction: Action = {
       let specification: PluginSpecification;
       try {
         const parsed = JSON.parse(message.content.text);
-        specification = PluginSpecificationSchema.parse(parsed) as PluginSpecification;
+        specification = PluginSpecificationSchema.parse(
+          parsed,
+        ) as PluginSpecification;
       } catch (error) {
         if (error instanceof z.ZodError) {
-          return `Invalid plugin specification:\n${error.errors.map(e => `- ${e.path.join('.')}: ${e.message}`).join('\n')}`;
+          return `Invalid plugin specification:\n${error.errors.map((e) => `- ${e.path.join(".")}: ${e.message}`).join("\n")}`;
         }
         return `Failed to parse specification: ${error.message}`;
       }
@@ -147,7 +195,7 @@ export const createPluginAction: Action = {
     } catch (error) {
       return `Failed to create plugin: ${error.message}`;
     }
-  }
+  },
 };
 
 export const checkPluginCreationStatusAction: Action = {
@@ -157,34 +205,36 @@ export const checkPluginCreationStatusAction: Action = {
     "plugin status",
     "check plugin progress",
     "plugin creation status",
-    "get plugin status"
+    "get plugin status",
   ],
   examples: [
     [
       {
         name: "user",
         content: {
-          text: "What's the status of my plugin creation?"
-        }
+          text: "What's the status of my plugin creation?",
+        },
       },
       {
         name: "agent",
         content: {
-          text: "Let me check the status of your plugin creation job..."
-        }
-      }
-    ]
+          text: "Let me check the status of your plugin creation job...",
+        },
+      },
+    ],
   ],
   validate: async (
     runtime: IAgentRuntime,
     message: Memory,
-    state?: State
+    state?: State,
   ): Promise<boolean> => {
-    const service = runtime.services.get("plugin_creation") as PluginCreationService;
+    const service = runtime.services.get(
+      "plugin_creation",
+    ) as PluginCreationService;
     if (!service) {
       return false;
     }
-    
+
     const jobs = service.getAllJobs();
     return jobs.length > 0;
   },
@@ -193,10 +243,12 @@ export const checkPluginCreationStatusAction: Action = {
     message: Memory,
     state?: State,
     options?: { [key: string]: unknown },
-    callback?: HandlerCallback
+    callback?: HandlerCallback,
   ): Promise<string> => {
     try {
-      const service = runtime.services.get("plugin_creation") as PluginCreationService;
+      const service = runtime.services.get(
+        "plugin_creation",
+      ) as PluginCreationService;
       if (!service) {
         return "Plugin creation service not available.";
       }
@@ -207,9 +259,11 @@ export const checkPluginCreationStatusAction: Action = {
       }
 
       // Check for job ID in message
-      const jobIdMatch = message.content.text.match(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i);
+      const jobIdMatch = message.content.text.match(
+        /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i,
+      );
       let targetJob;
-      
+
       if (jobIdMatch) {
         targetJob = service.getJobStatus(jobIdMatch[0]);
         if (!targetJob) {
@@ -218,12 +272,14 @@ export const checkPluginCreationStatusAction: Action = {
       } else {
         // Get the most recent active job
         targetJob = jobs
-          .filter(job => job.status === "running" || job.status === "pending")
+          .filter((job) => job.status === "running" || job.status === "pending")
           .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime())[0];
-        
+
         if (!targetJob) {
           // Get the most recent job of any status
-          targetJob = jobs.sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime())[0];
+          targetJob = jobs.sort(
+            (a, b) => b.startedAt.getTime() - a.startedAt.getTime(),
+          )[0];
         }
       }
 
@@ -239,16 +295,17 @@ export const checkPluginCreationStatusAction: Action = {
       response += `🔄 Phase: ${targetJob.currentPhase}\n`;
       response += `📈 Progress: ${Math.round(targetJob.progress)}%\n`;
       response += `⏱️ Started: ${targetJob.startedAt.toLocaleString()}\n`;
-      
+
       if (targetJob.completedAt) {
         response += `✅ Completed: ${targetJob.completedAt.toLocaleString()}\n`;
-        const duration = targetJob.completedAt.getTime() - targetJob.startedAt.getTime();
+        const duration =
+          targetJob.completedAt.getTime() - targetJob.startedAt.getTime();
         response += `⏳ Duration: ${Math.round(duration / 1000)}s\n`;
       }
-      
+
       if (targetJob.logs.length > 0) {
         response += `\n📝 Recent Activity:\n`;
-        targetJob.logs.slice(-5).forEach(log => {
+        targetJob.logs.slice(-5).forEach((log) => {
           response += `  ${log}\n`;
         });
       }
@@ -267,45 +324,45 @@ export const checkPluginCreationStatusAction: Action = {
     } catch (error) {
       return `Failed to check status: ${error.message}`;
     }
-  }
+  },
 };
 
 export const cancelPluginCreationAction: Action = {
   name: "cancelPluginCreation",
   description: "Cancel the current plugin creation job",
-  similes: [
-    "stop plugin creation",
-    "abort plugin creation",
-    "cancel plugin"
-  ],
+  similes: ["stop plugin creation", "abort plugin creation", "cancel plugin"],
   examples: [
     [
       {
         name: "user",
         content: {
-          text: "Cancel the plugin creation"
-        }
+          text: "Cancel the plugin creation",
+        },
       },
       {
         name: "agent",
         content: {
-          text: "I'll cancel the current plugin creation job."
-        }
-      }
-    ]
+          text: "I'll cancel the current plugin creation job.",
+        },
+      },
+    ],
   ],
   validate: async (
     runtime: IAgentRuntime,
     message: Memory,
-    state?: State
+    state?: State,
   ): Promise<boolean> => {
-    const service = runtime.services.get("plugin_creation") as PluginCreationService;
+    const service = runtime.services.get(
+      "plugin_creation",
+    ) as PluginCreationService;
     if (!service) {
       return false;
     }
-    
+
     const jobs = service.getAllJobs();
-    const activeJob = jobs.find(job => job.status === "running" || job.status === "pending");
+    const activeJob = jobs.find(
+      (job) => job.status === "running" || job.status === "pending",
+    );
     return !!activeJob;
   },
   handler: async (
@@ -313,17 +370,21 @@ export const cancelPluginCreationAction: Action = {
     message: Memory,
     state?: State,
     options?: { [key: string]: unknown },
-    callback?: HandlerCallback
+    callback?: HandlerCallback,
   ): Promise<string> => {
     try {
-      const service = runtime.services.get("plugin_creation") as PluginCreationService;
+      const service = runtime.services.get(
+        "plugin_creation",
+      ) as PluginCreationService;
       if (!service) {
         return "Plugin creation service not available.";
       }
 
       const jobs = service.getAllJobs();
-      const activeJob = jobs.find(job => job.status === "running" || job.status === "pending");
-      
+      const activeJob = jobs.find(
+        (job) => job.status === "running" || job.status === "pending",
+      );
+
       if (!activeJob) {
         return "No active plugin creation job to cancel.";
       }
@@ -333,7 +394,7 @@ export const cancelPluginCreationAction: Action = {
     } catch (error) {
       return `Failed to cancel job: ${error.message}`;
     }
-  }
+  },
 };
 
 export const createPluginFromDescriptionAction: Action = {
@@ -343,36 +404,40 @@ export const createPluginFromDescriptionAction: Action = {
     "describe plugin",
     "plugin from description",
     "explain plugin",
-    "I need a plugin that"
+    "I need a plugin that",
   ],
   examples: [
     [
       {
         name: "user",
         content: {
-          text: "I need a plugin that helps manage todo lists with add, remove, and list functionality"
-        }
+          text: "I need a plugin that helps manage todo lists with add, remove, and list functionality",
+        },
       },
       {
         name: "agent",
         content: {
-          text: "I'll create a todo list management plugin based on your description. This will include actions for adding, removing, and listing todos."
-        }
-      }
-    ]
+          text: "I'll create a todo list management plugin based on your description. This will include actions for adding, removing, and listing todos.",
+        },
+      },
+    ],
   ],
   validate: async (
     runtime: IAgentRuntime,
     message: Memory,
-    state?: State
+    state?: State,
   ): Promise<boolean> => {
-    const service = runtime.services.get("plugin_creation") as PluginCreationService;
+    const service = runtime.services.get(
+      "plugin_creation",
+    ) as PluginCreationService;
     if (!service) {
       return false;
     }
 
     const jobs = service.getAllJobs();
-    const activeJob = jobs.find(job => job.status === "running" || job.status === "pending");
+    const activeJob = jobs.find(
+      (job) => job.status === "running" || job.status === "pending",
+    );
     if (activeJob) {
       return false;
     }
@@ -384,10 +449,12 @@ export const createPluginFromDescriptionAction: Action = {
     message: Memory,
     state?: State,
     options?: { [key: string]: unknown },
-    callback?: HandlerCallback
+    callback?: HandlerCallback,
   ): Promise<string> => {
     try {
-      const service = runtime.services.get("plugin_creation") as PluginCreationService;
+      const service = runtime.services.get(
+        "plugin_creation",
+      ) as PluginCreationService;
       if (!service) {
         return "Plugin creation service not available.";
       }
@@ -398,33 +465,38 @@ export const createPluginFromDescriptionAction: Action = {
       }
 
       // Generate specification from description
-      const specification = await generatePluginSpecification(message.content.text, runtime);
-      
+      const specification = await generatePluginSpecification(
+        message.content.text,
+        runtime,
+      );
+
       // Validate the generated specification
       try {
         PluginSpecificationSchema.parse(specification);
       } catch (error) {
         if (error instanceof z.ZodError) {
-          return `Failed to generate valid specification:\n${error.errors.map(e => `- ${e.path.join('.')}: ${e.message}`).join('\n')}`;
+          return `Failed to generate valid specification:\n${error.errors.map((e) => `- ${e.path.join(".")}: ${e.message}`).join("\n")}`;
         }
       }
 
       const jobId = await service.createPlugin(specification, apiKey);
 
-      return `I'm creating a plugin based on your description!\n\n` +
-             `📦 Plugin: ${specification.name}\n` +
-             `📝 Description: ${specification.description}\n` +
-             `🆔 Job ID: ${jobId}\n\n` +
-             `Components to be created:\n` +
-             `${specification.actions?.length ? `- ${specification.actions.length} actions\n` : ''}` +
-             `${specification.providers?.length ? `- ${specification.providers.length} providers\n` : ''}` +
-             `${specification.services?.length ? `- ${specification.services.length} services\n` : ''}` +
-             `${specification.evaluators?.length ? `- ${specification.evaluators.length} evaluators\n` : ''}\n` +
-             `Use 'checkPluginCreationStatus' to monitor progress.`;
+      return (
+        `I'm creating a plugin based on your description!\n\n` +
+        `📦 Plugin: ${specification.name}\n` +
+        `📝 Description: ${specification.description}\n` +
+        `🆔 Job ID: ${jobId}\n\n` +
+        `Components to be created:\n` +
+        `${specification.actions?.length ? `- ${specification.actions.length} actions\n` : ""}` +
+        `${specification.providers?.length ? `- ${specification.providers.length} providers\n` : ""}` +
+        `${specification.services?.length ? `- ${specification.services.length} services\n` : ""}` +
+        `${specification.evaluators?.length ? `- ${specification.evaluators.length} evaluators\n` : ""}\n` +
+        `Use 'checkPluginCreationStatus' to monitor progress.`
+      );
     } catch (error) {
       return `Failed to create plugin: ${error.message}`;
     }
-  }
+  },
 };
 
 // Enhanced helper function to generate plugin specification from natural language
@@ -433,11 +505,11 @@ async function generatePluginSpecification(
   runtime: IAgentRuntime,
 ): Promise<PluginSpecification> {
   const lowerDesc = description.toLowerCase();
-  
+
   // Detect plugin type and generate appropriate name
   let name = "@elizaos/plugin-";
   let pluginType = "custom";
-  
+
   if (lowerDesc.includes("weather")) {
     pluginType = "weather";
     name += "weather";
@@ -458,7 +530,7 @@ async function generatePluginSpecification(
     name += "chat";
   } else {
     // Generate name from first significant word
-    const words = description.split(/\s+/).filter(w => w.length > 4);
+    const words = description.split(/\s+/).filter((w) => w.length > 4);
     name += words[0]?.toLowerCase() || "custom";
   }
 
@@ -469,7 +541,7 @@ async function generatePluginSpecification(
     actions: [],
     providers: [],
     services: [],
-    evaluators: []
+    evaluators: [],
   };
 
   // Detect actions based on keywords
@@ -478,56 +550,74 @@ async function generatePluginSpecification(
     read: ["get", "fetch", "retrieve", "list", "show", "display"],
     update: ["update", "modify", "change", "edit", "set"],
     delete: ["delete", "remove", "clear", "destroy"],
-    execute: ["execute", "run", "perform", "do", "process"]
+    execute: ["execute", "run", "perform", "do", "process"],
   };
 
   for (const [actionType, keywords] of Object.entries(actionKeywords)) {
-    if (keywords.some(kw => lowerDesc.includes(kw))) {
+    if (keywords.some((kw) => lowerDesc.includes(kw))) {
       specification.actions?.push({
         name: `${actionType}${pluginType.charAt(0).toUpperCase() + pluginType.slice(1)}`,
         description: `${actionType.charAt(0).toUpperCase() + actionType.slice(1)} operation for ${pluginType}`,
-        parameters: {}
+        parameters: {},
       });
     }
   }
 
   // Detect if providers are needed
-  if (lowerDesc.includes("provide") || lowerDesc.includes("information") || 
-      lowerDesc.includes("data") || lowerDesc.includes("context")) {
+  if (
+    lowerDesc.includes("provide") ||
+    lowerDesc.includes("information") ||
+    lowerDesc.includes("data") ||
+    lowerDesc.includes("context")
+  ) {
     specification.providers?.push({
       name: `${pluginType}Provider`,
       description: `Provides ${pluginType} data and context`,
-      dataStructure: {}
+      dataStructure: {},
     });
   }
 
   // Detect if services are needed
-  if (lowerDesc.includes("service") || lowerDesc.includes("background") || 
-      lowerDesc.includes("monitor") || lowerDesc.includes("watch")) {
+  if (
+    lowerDesc.includes("service") ||
+    lowerDesc.includes("background") ||
+    lowerDesc.includes("monitor") ||
+    lowerDesc.includes("watch")
+  ) {
     specification.services?.push({
       name: `${pluginType}Service`,
       description: `Background service for ${pluginType} operations`,
-      methods: ["start", "stop", "status"]
+      methods: ["start", "stop", "status"],
     });
   }
 
   // Detect if evaluators are needed
-  if (lowerDesc.includes("evaluate") || lowerDesc.includes("analyze") || 
-      lowerDesc.includes("check") || lowerDesc.includes("validate")) {
+  if (
+    lowerDesc.includes("evaluate") ||
+    lowerDesc.includes("analyze") ||
+    lowerDesc.includes("check") ||
+    lowerDesc.includes("validate")
+  ) {
     specification.evaluators?.push({
       name: `${pluginType}Evaluator`,
       description: `Evaluates and analyzes ${pluginType} data`,
-      triggers: []
+      triggers: [],
     });
   }
 
   // Ensure at least one component exists
-  if (!specification.actions?.length && !specification.providers?.length && 
-      !specification.services?.length && !specification.evaluators?.length) {
-    specification.actions = [{
-      name: `handle${pluginType.charAt(0).toUpperCase() + pluginType.slice(1)}`,
-      description: `Main handler for ${pluginType} operations`
-    }];
+  if (
+    !specification.actions?.length &&
+    !specification.providers?.length &&
+    !specification.services?.length &&
+    !specification.evaluators?.length
+  ) {
+    specification.actions = [
+      {
+        name: `handle${pluginType.charAt(0).toUpperCase() + pluginType.slice(1)}`,
+        description: `Main handler for ${pluginType} operations`,
+      },
+    ];
   }
 
   return specification;
