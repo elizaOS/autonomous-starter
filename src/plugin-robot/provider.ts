@@ -5,9 +5,10 @@ import {
   type State,
   addHeader,
   logger,
+  ModelType,
 } from '@elizaos/core';
 import { type RobotService } from './service';
-import { type ScreenContext } from './types';
+import { type ScreenContext, type ScreenObject } from './types';
 
 function formatAge(ageMs: number): string {
   if (ageMs < 1000) {
@@ -34,13 +35,19 @@ export const screenProvider: Provider = {
           values: {
             serviceStatus: 'initializing',
             dataAge: 'unavailable',
+            currentDescription: '',
+            ocr: '',
+            objects: [],
+            changeDetected: false,
+            pixelDifferencePercentage: undefined,
+            historyCount: 0,
+            isStale: false,
           },
           text: '# Screen Context\n\n🔄 **Robot Service Initializing**\n\nThe robot service is still starting up. Screen context will be available once initialization is complete.\n\n**Status**: Service not yet available\n**Expected**: Available after service initialization',
           data: { serviceStatus: 'initializing' },
         };
       }
       
-      // Try to get context, but don't block if it's not ready
       let context: ScreenContext | null = null;
       let contextAge = 'unknown';
       let isStale = false;
@@ -59,11 +66,18 @@ export const screenProvider: Provider = {
           isStale = ageMs > 10000; // Consider stale after 10 seconds
         }
       } catch (error) {
-        logger.debug('[screenProvider] Context not immediately available, using fallback');
+        logger.debug('[screenProvider] Context not immediately available, using fallback', error);
         return {
           values: {
             serviceStatus: 'processing',
             dataAge: 'processing',
+            currentDescription: '',
+            ocr: '',
+            objects: [],
+            changeDetected: false,
+            pixelDifferencePercentage: undefined,
+            historyCount: 0,
+            isStale: false,
           },
           text: '# Screen Context\n\n⏳ **Processing Screen Data**\n\nThe robot service is currently processing screen information in the background.\n\n**Status**: Background processing active\n**Data**: Will be available shortly',
           data: { serviceStatus: 'processing' },
@@ -75,6 +89,13 @@ export const screenProvider: Provider = {
           values: {
             serviceStatus: 'no-data',
             dataAge: 'none',
+            currentDescription: '',
+            ocr: '',
+            objects: [],
+            changeDetected: false,
+            pixelDifferencePercentage: undefined,
+            historyCount: 0,
+            isStale: false,
           },
           text: '# Screen Context\n\n❌ **No Screen Data Available**\n\nNo screen context data is currently available.\n\n**Status**: No data captured yet',
           data: { serviceStatus: 'no-data' },
@@ -93,13 +114,12 @@ export const screenProvider: Provider = {
       }
       
       // Format current description section
-      const currentDescriptionSection = context.currentDescription
-        ? `# Current Screen Description\n${context.currentDescription}`
-        : '# Current Screen Description\nNo description available';
+      const currentDescriptionText = context.currentDescription || 'No description available';
+      const currentDescriptionSection = `# Current Screen Description\n${currentDescriptionText}`;
 
       // Format description history section
       let historySection = '# Recent Screen History\n';
-      if (context.descriptionHistory.length > 0) {
+      if (context.descriptionHistory && context.descriptionHistory.length > 0) {
         historySection += context.descriptionHistory
           .map((entry, index) => `${index + 1}. ${entry.relativeTime}: ${entry.description}`)
           .join('\n');
@@ -108,14 +128,21 @@ export const screenProvider: Provider = {
       }
 
       // Format OCR section
-      const ocrSection = context.ocr ? `# Text on Screen (OCR)\n${context.ocr}` : '# Text on Screen (OCR)\nNo text detected';
+      const ocrText = context.ocr || 'No text detected';
+      const ocrSection = `# Text on Screen (OCR)\n${ocrText}`;
 
       // Format objects section
-      const objectsText = Array.isArray(context.objects)
+      const objectsText = Array.isArray(context.objects) && context.objects.length > 0
         ? context.objects
-          .map((o) => `${o.label} at (${o.bbox.x},${o.bbox.y})`)
-          .join('\n')
-        : 'No object data or data in unexpected format';
+            .map((o) => {
+              const { label, bbox } = o as { label: string; bbox?: { x?: number; y?: number } };
+              if (bbox && typeof bbox.x === 'number' && typeof bbox.y === 'number') {
+                return `${label} at (${bbox.x},${bbox.y})`;
+              }
+              return label;
+            })
+            .join('\n')
+        : 'No object data available';
       const objectsSection = objectsText ? `# Interactive Objects\n${objectsText}` : '# Interactive Objects\nNone detected';
 
       // Format change detection section
@@ -149,11 +176,12 @@ export const screenProvider: Provider = {
 
       return {
         values: {
-          currentDescription: context.currentDescription,
-          ocr: context.ocr,
+          currentDescription: context.currentDescription || '',
+          ocr: context.ocr || '',
+          objects: context.objects || [],
           changeDetected: context.changeDetected,
           pixelDifferencePercentage: context.pixelDifferencePercentage,
-          historyCount: context.descriptionHistory.length,
+          historyCount: context.descriptionHistory ? context.descriptionHistory.length : 0,
           serviceStatus: 'active',
           dataAge: contextAge,
           isStale: isStale,
@@ -167,9 +195,16 @@ export const screenProvider: Provider = {
         values: {
           serviceStatus: 'error',
           dataAge: 'error',
+          currentDescription: '',
+          ocr: '',
+          objects: [],
+          changeDetected: false,
+          pixelDifferencePercentage: undefined,
+          historyCount: 0,
+          isStale: false,
         },
         text: '# Screen Context\n\n❌ **Error Getting Screen Data**\n\nAn error occurred while retrieving screen context.\n\n**Status**: Error state\n**Action**: Service will retry automatically',
-        data: { error: error.message },
+        data: { error: (error as Error).message },
       };
     }
   },

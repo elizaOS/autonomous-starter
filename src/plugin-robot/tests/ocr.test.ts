@@ -277,6 +277,21 @@ describe('RobotService OCR Tests', () => {
       expect(objects).toEqual([]);
     });
 
+    it('should correctly extract objects from a wrapped { objects: [...] } structure', async () => {
+      const wrappedObjects = { 
+        objects: [
+          { label: 'window', bbox: { x: 0, y: 0, width: 800, height: 600 } },
+          { label: 'icon', bbox: { x: 10, y: 10, width: 32, height: 32 } }
+        ]
+      };
+      mockRuntime.useModel = vi.fn()
+        .mockResolvedValueOnce(wrappedObjects); // detectObjects returns wrapped structure
+
+      const detectObjects = (robotService as any).detectObjects.bind(robotService);
+      const objects = await detectObjects(createTestImageBuffer('test'));
+      expect(objects).toEqual(wrappedObjects.objects);
+    });
+
     it('getContext should have empty objects array if detectObjects fails or returns non-array', async () => {
       mockTesseractWorker.recognize.mockResolvedValue({ data: { text: 'OCR Content' } });
       mockRuntime.useModel = vi.fn()

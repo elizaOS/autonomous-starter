@@ -95,7 +95,7 @@
   "scripts": {
     "start": "bun run build && elizaos start",
     "dev": "bun run build && elizaos dev",
-    "build": "tsup",
+    "build": "npx tsup",
     "lint": "prettier --write ./src",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",

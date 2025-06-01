@@ -6,8 +6,8 @@ import {
   type HandlerCallback,
   logger,
 } from '@elizaos/core';
-import { type RobotService } from './service';
-import { type ScreenActionStep } from './types';
+import { type RobotService } from './service.ts';
+import { type ScreenActionStep } from './types.ts';
 
 export const performScreenAction: Action = {
   name: 'PERFORM_SCREEN_ACTION',
@@ -93,3 +93,5 @@ export const performScreenAction: Action = {
     ],
   ],
 };
+
+export default performScreenAction;

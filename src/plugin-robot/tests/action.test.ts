@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { performScreenAction, type ScreenActionStep } from '../action.js';
+import { performScreenAction } from '../action';
+import { type ScreenActionStep } from '../types';
 import { RobotService } from '../service.js';
 import type { IAgentRuntime, Memory, State, HandlerCallback } from '@elizaos/core';
 
@@ -25,9 +26,9 @@ const mockRuntime = {
 // Mock message and state
 const createMockMessage = (text: string): Memory => ({
   id: '12345678-1234-1234-1234-123456789abc',
-  agentId: '12345678-1234-1234-1234-123456789abc',
-  entityId: '12345678-1234-1234-1234-123456789def',
-  roomId: '12345678-1234-1234-1234-123456789ghi',
+  agentId: 'agent-12345678-1234-1234-1234-123456789abc',
+  entityId: 'entity-12345678-1234-1234-1234-123456789def',
+  roomId: 'room-12345678-1234-1234-1234-123456789ghi',
   content: { text },
   createdAt: Date.now(),
 });
@@ -50,20 +51,26 @@ describe('performScreenAction', () => {
   describe('action properties', () => {
     it('should have correct action properties', () => {
       expect(performScreenAction.name).toBe('PERFORM_SCREEN_ACTION');
-      expect(performScreenAction.similes).toEqual(['SCREEN_ACTION', 'CONTROL_SCREEN']);
+      expect(performScreenAction.similes).toEqual([
+        'SCREEN_ACTION',
+        'CONTROL_SCREEN',
+        'INTERACT_SCREEN',
+      ]);
       expect(performScreenAction.description).toContain('Perform mouse and keyboard actions');
     });
 
     it('should have examples', () => {
       expect(performScreenAction.examples).toBeDefined();
-      expect(performScreenAction.examples).toHaveLength(1);
+      expect(performScreenAction.examples).toHaveLength(2);
       expect(performScreenAction.examples[0]).toHaveLength(2);
+      expect(performScreenAction.examples[1]).toHaveLength(2);
     });
   });
 
   describe('validate', () => {
     it('should validate successfully when RobotService is available', async () => {
-      const isValid = await performScreenAction.validate(mockRuntime);
+      const message = createMockMessage('test');
+      const isValid = await performScreenAction.validate(mockRuntime, message);
       expect(isValid).toBe(true);
       expect(mockRuntime.getService).toHaveBeenCalledWith('ROBOT');
     });
@@ -73,8 +80,8 @@ describe('performScreenAction', () => {
         ...mockRuntime,
         getService: vi.fn(() => null),
       } as unknown as IAgentRuntime;
-
-      const isValid = await performScreenAction.validate(runtimeWithoutService);
+      const message = createMockMessage('test');
+      const isValid = await performScreenAction.validate(runtimeWithoutService, message);
       expect(isValid).toBe(false);
     });
   });
@@ -92,8 +99,8 @@ describe('performScreenAction', () => {
 
       expect(mockRobotService.moveMouse).toHaveBeenCalledWith(100, 200);
       expect(mockCallback).toHaveBeenCalledWith({
-        thought: 'Executed screen actions',
-        text: 'Screen actions executed.',
+        thought: 'Executed 1 screen actions successfully',
+        text: 'Screen actions completed: moved mouse to (100, 200).',
       });
     });
 
@@ -104,10 +111,10 @@ describe('performScreenAction', () => {
 
       await performScreenAction.handler(mockRuntime, message, state, options, mockCallback);
 
-      expect(mockRobotService.click).toHaveBeenCalledWith(undefined);
+      expect(mockRobotService.click).toHaveBeenCalledWith('left', false);
       expect(mockCallback).toHaveBeenCalledWith({
-        thought: 'Executed screen actions',
-        text: 'Screen actions executed.',
+        thought: 'Executed 1 screen actions successfully',
+        text: 'Screen actions completed: clicked left mouse button.',
       });
     });
 
@@ -118,7 +125,7 @@ describe('performScreenAction', () => {
 
       await performScreenAction.handler(mockRuntime, message, state, options, mockCallback);
 
-      expect(mockRobotService.click).toHaveBeenCalledWith('right');
+      expect(mockRobotService.click).toHaveBeenCalledWith('right', false);
     });
 
     it('should handle type action', async () => {
@@ -143,7 +150,7 @@ describe('performScreenAction', () => {
       await performScreenAction.handler(mockRuntime, message, state, options, mockCallback);
 
       expect(mockRobotService.moveMouse).toHaveBeenCalledWith(100, 200);
-      expect(mockRobotService.click).toHaveBeenCalledWith('left');
+      expect(mockRobotService.click).toHaveBeenCalledWith('left', false);
       expect(mockRobotService.typeText).toHaveBeenCalledWith('test input');
     });
 
@@ -186,8 +193,8 @@ describe('performScreenAction', () => {
       expect(mockRobotService.click).not.toHaveBeenCalled();
       expect(mockRobotService.typeText).not.toHaveBeenCalled();
       expect(mockCallback).toHaveBeenCalledWith({
-        thought: 'Executed screen actions',
-        text: 'Screen actions executed.',
+        thought: 'No valid steps provided',
+        text: 'Unable to perform screen action - no valid steps were provided.',
       });
     });
 
@@ -200,8 +207,8 @@ describe('performScreenAction', () => {
       expect(mockRobotService.click).not.toHaveBeenCalled();
       expect(mockRobotService.typeText).not.toHaveBeenCalled();
       expect(mockCallback).toHaveBeenCalledWith({
-        thought: 'Executed screen actions',
-        text: 'Screen actions executed.',
+        thought: 'No valid steps provided',
+        text: 'Unable to perform screen action - no valid steps were provided.',
       });
     });
 
@@ -225,7 +232,7 @@ describe('performScreenAction', () => {
 
       expect(mockCallback).toHaveBeenCalledWith({
         thought: 'RobotService not available',
-        text: 'Unable to perform screen action.',
+        text: 'Unable to perform screen action - robot service is not available.',
       });
     });
 
@@ -237,10 +244,10 @@ describe('performScreenAction', () => {
       await performScreenAction.handler(mockRuntime, message, state, options, mockCallback);
 
       // Should skip unknown action and process the click
-      expect(mockRobotService.click).toHaveBeenCalledWith(undefined);
+      expect(mockRobotService.click).toHaveBeenCalledWith('left', false);
       expect(mockCallback).toHaveBeenCalledWith({
-        thought: 'Executed screen actions',
-        text: 'Screen actions executed.',
+        thought: 'Executed 1 screen actions successfully',
+        text: 'Screen actions completed: skipped invalid step: {"action":"unknown_action"}, clicked left mouse button.',
       });
     });
 
@@ -299,9 +306,9 @@ describe('performScreenAction', () => {
 
       await performScreenAction.handler(mockRuntime, message, state, options, mockCallback);
 
-      expect(mockRobotService.click).toHaveBeenCalledWith('left');
-      expect(mockRobotService.click).toHaveBeenCalledWith('right');
-      expect(mockRobotService.click).toHaveBeenCalledWith('middle');
+      expect(mockRobotService.click).toHaveBeenCalledWith('left', false);
+      expect(mockRobotService.click).toHaveBeenCalledWith('right', false);
+      expect(mockRobotService.click).toHaveBeenCalledWith('middle', false);
       expect(mockRobotService.click).toHaveBeenCalledTimes(3);
     });
   });

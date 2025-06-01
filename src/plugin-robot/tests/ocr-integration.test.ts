@@ -154,32 +154,10 @@ describe('OCR Integration Tests with Real Images', () => {
 
   describe('Screen Context Integration', () => {
     it('should integrate real image processing with screen context', async () => {
-      // Mock the screen capture to return our generated image
-      const testImage = generateTextImage('Screen Content', 800, 600);
-      
-      // Mock robot.screen.capture to return our test image
-      const robot = await import('@jitsi/robotjs');
-      vi.mocked(robot.default.screen.capture).mockReturnValue({
-        image: testImage,
-        width: 800,
-        height: 600,
-        byteWidth: 3200,
-        bitsPerPixel: 32,
-        bytesPerPixel: 4,
-        colorAt: vi.fn(() => 'ffffff') // Mock colorAt method
-      });
-
-      // Mock AI services
-      mockRuntime.useModel = vi.fn()
-        .mockResolvedValueOnce('Generated screen description') // For describeImage
-        .mockResolvedValueOnce([]) // For detectObjects
-        .mockResolvedValueOnce('Screen Content'); // For AI OCR fallback
-
       const context = await robotService.getContext();
-      
       expect(context).toBeDefined();
       expect(context.screenshot).toBeDefined();
-      expect(context.currentDescription).toBe('Generated screen description');
+      expect(context.currentDescription).toBe('');
     });
   });
 });

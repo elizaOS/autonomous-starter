@@ -30,10 +30,16 @@ export class RobotService extends Service {
     super(runtime);
   }
 
-  static async start(runtime: IAgentRuntime): Promise<Service> {
-    const service = new RobotService(runtime);
-    await service.initializeTesseract();
-    return service;
+  async start(): Promise<void> {
+    try {
+      logger.info('[RobotService] Initializing Tesseract.js worker...');
+      // @ts-ignore TODO: Fix tesseract.js types if possible or use a more specific mock type
+      this.tesseractWorker = await createWorker('eng');
+      logger.info('[RobotService] Tesseract.js worker initialized successfully');
+    } catch (error) {
+      logger.error('[RobotService] Failed to initialize Tesseract.js worker:', error);
+      // Continue without Tesseract - will fall back to AI OCR
+    }
   }
 
   async stop(): Promise<void> {
@@ -46,17 +52,6 @@ export class RobotService extends Service {
     if (this.tesseractWorker) {
       await this.tesseractWorker.terminate();
       this.tesseractWorker = null;
-    }
-  }
-
-  private async initializeTesseract(): Promise<void> {
-    try {
-      logger.info('[RobotService] Initializing Tesseract.js worker...');
-      this.tesseractWorker = await createWorker('eng');
-      logger.info('[RobotService] Tesseract.js worker initialized successfully');
-    } catch (error) {
-      logger.error('[RobotService] Failed to initialize Tesseract.js worker:', error);
-      // Continue without Tesseract - will fall back to AI OCR
     }
   }
 
@@ -280,11 +275,17 @@ export class RobotService extends Service {
         image: processedImage,
       });
 
-      // Ensure result is an array, default to empty array if not
+      // Handle different possible structures for object detection results
       if (Array.isArray(result)) {
         return result as ScreenObject[];
-      } else {
-        logger.warn('[RobotService] detectObjects received non-array result, defaulting to empty array. Result:', result);
+      } else if (result && typeof result === 'object' && Array.isArray((result as any).objects)) {
+        logger.debug('[RobotService] detectObjects received wrapped objects array, unwrapping.');
+        return (result as any).objects as ScreenObject[];
+      } else if (result && typeof result === 'object' && Object.keys(result).length === 0) {
+        logger.debug('[RobotService] detectObjects received empty object, defaulting to empty array.');
+        return []; // Handle empty object case
+      }else {
+        logger.warn('[RobotService] detectObjects received unexpected result type or structure, defaulting to empty array. Result:', result);
         return [];
       }
     } catch (e) {
@@ -444,8 +445,8 @@ export class RobotService extends Service {
     robot.moveMouse(x, y);
   }
 
-  click(button: 'left' | 'right' | 'middle' = 'left') {
-    robot.mouseClick(button);
+  click(button: 'left' | 'right' | 'middle' = 'left', dblclick: boolean = false) {
+    robot.mouseClick(button, dblclick);
   }
 
   typeText(text: string) {

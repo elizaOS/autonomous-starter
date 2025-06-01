@@ -45,9 +45,11 @@ describe('Robot Plugin', () => {
     });
 
     it('should have valid action structure', () => {
+      expect(robotPlugin.actions).toBeInstanceOf(Array);
+      expect(robotPlugin.actions.length).toBeGreaterThan(0);
       const action = robotPlugin.actions[0];
       expect(action.name).toBe('PERFORM_SCREEN_ACTION');
-      expect(action.similes).toEqual(['SCREEN_ACTION', 'CONTROL_SCREEN']);
+      expect(action.similes).toEqual(['SCREEN_ACTION', 'CONTROL_SCREEN', 'INTERACT_SCREEN']);
       expect(action.description).toContain('Perform mouse and keyboard actions');
       expect(typeof action.validate).toBe('function');
       expect(typeof action.handler).toBe('function');
@@ -55,10 +57,12 @@ describe('Robot Plugin', () => {
     });
 
     it('should have valid provider structure', () => {
+      expect(robotPlugin.providers).toBeInstanceOf(Array);
+      expect(robotPlugin.providers.length).toBeGreaterThan(0);
       const provider = robotPlugin.providers[0];
       expect(provider.name).toBe('SCREEN_CONTEXT');
       expect(provider.description).toBe(
-        'Latest screen description, OCR results and detected objects.'
+        'Current screen context with OCR, description history, and change detection information.'
       );
       expect(provider.position).toBe(50);
       expect(typeof provider.get).toBe('function');

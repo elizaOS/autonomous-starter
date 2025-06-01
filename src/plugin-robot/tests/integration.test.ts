@@ -1,17 +1,18 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterAll, beforeAll } from 'vitest';
 
 // Mock robotjs before any imports
 vi.mock('@jitsi/robotjs', () => ({
   default: {
-    getScreenSize: vi.fn(() => ({ width: 1920, height: 1080 })),
+    getScreenSize: vi.fn(() => ({ width: 1, height: 1 })),
     screen: {
       capture: vi.fn(() => ({
-        image: Buffer.from('mock-screenshot-data'),
-        width: 1920,
-        height: 1080,
-        byteWidth: 7680,
+        image: MOCK_PNG_BUFFER, // Use the defined MOCK_PNG_BUFFER
+        width: 1,
+        height: 1,
+        byteWidth: 4,
         bitsPerPixel: 32,
         bytesPerPixel: 4,
+        colorAt: vi.fn(() => '000000'),
       })),
     },
     moveMouse: vi.fn(),
@@ -24,39 +25,103 @@ import { robotPlugin } from '../index.js';
 import { RobotService } from '../service.js';
 import { performScreenAction } from '../action.js';
 import { screenProvider } from '../provider.js';
-import type { IAgentRuntime, Memory, State, HandlerCallback } from '@elizaos/core';
+import type { IAgentRuntime, Memory, State, HandlerCallback, Service, Agent, Action, Provider, Evaluator, Plugin, ServiceTypeName, UUID, Room, Entity } from '@elizaos/core';
 import { ModelType } from '@elizaos/core';
+import { type ScreenActionStep, type ScreenContext, RobotServiceType } from '../types';
 // @ts-ignore - mocked module
 import robot from '@jitsi/robotjs';
+
+// Minimal valid PNG (1x1 transparent pixel)
+const MOCK_PNG_BUFFER = Buffer.from([
+  137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8,  6, 0, 0, 0, 31, 21, 196, 137, 0, 0, 0, 11, 73, 68, 65, 84, 120, 156, 99, 96, 96, 96, 0, 0, 0, 7, 0, 1, 170, 223, 181, 33, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130, 
+]);
 
 // Get the mocked functions
 const mockRobotJs = robot as any;
 
 // Mock the runtime
-const createMockRuntime = (): IAgentRuntime => {
-  const services = new Map();
-  const runtime = {
+const createMockRuntime = (): { runtime: IAgentRuntime, servicesMap: Map<ServiceTypeName, Service> } => {
+  const services = new Map<ServiceTypeName, Service>();
+  let runtimeInstance: IAgentRuntime;
+  runtimeInstance = {
     agentId: '12345678-1234-1234-1234-123456789abc' as const,
-    getService: vi.fn((serviceName: string) => services.get(serviceName)),
-    useModel: vi.fn(),
-    emitEvent: vi.fn(),
+    character: { 
+      id: 'char-id' as UUID, 
+      name: 'TestAgent', 
+      bio: '', 
+      settings: { secrets: {} },
+      createdAt: Date.now(), 
+      updatedAt: Date.now(), 
+    } as Agent,
+    providers: [] as Provider[],
+    actions: [] as Action[], 
+    evaluators: [] as Evaluator[],
+    plugins: [] as Plugin[],
+    services: services,
+    events: new Map(),
+    fetch: vi.fn().mockImplementation(() => Promise.resolve({ ok: true, json: () => Promise.resolve({}) })) as any,
+    registerPlugin: vi.fn(),
+    initialize: vi.fn(),
+    getConnection: vi.fn(), 
+    getService: vi.fn((serviceName: ServiceTypeName) => services.get(serviceName)) as <T extends Service>(serviceType: ServiceTypeName) => T | undefined,
+    getAllServices: vi.fn(() => services),
     registerService: vi.fn(async (ServiceClass: any) => {
-      // Directly instantiate the service instead of calling start()
-      const serviceInstance = new ServiceClass(runtime);
+      const serviceInstance = new ServiceClass(runtimeInstance); 
       services.set(ServiceClass.serviceType, serviceInstance);
+      if (serviceInstance.start) { 
+        await serviceInstance.start();
+      }
     }),
-    services,
-  } as unknown as IAgentRuntime;
+    registerDatabaseAdapter: vi.fn(),
+    setSetting: vi.fn(),
+    getSetting: vi.fn((key: string) => {
+      if (key === 'WORLD_ID') return 'test-world-id' as UUID;
+      if (key === 'ENABLE_LOCAL_OCR') return true; 
+      return null;
+    }),
+    getConversationLength: vi.fn().mockResolvedValue(0),
+    processActions: vi.fn(),
+    evaluate: vi.fn(),
+    registerProvider: vi.fn(),
+    registerAction: vi.fn(),
+    registerEvaluator: vi.fn(),
+    ensureConnection: vi.fn(),
+    ensureParticipantInRoom: vi.fn(),
+    ensureWorldExists: vi.fn().mockResolvedValue(undefined),
+    ensureRoomExists: vi.fn().mockResolvedValue(undefined),
+    composeState: vi.fn().mockResolvedValue({ values: {}, data: {}, text: '' }),
+    useModel: vi.fn(),
+    registerModel: vi.fn(),
+    getModel: vi.fn(),
+    registerEvent: vi.fn(),
+    getEvent: vi.fn(),
+    emitEvent: vi.fn(),
+    registerTaskWorker: vi.fn(),
+    getTaskWorker: vi.fn(),
+    stop: vi.fn(),
+    addEmbeddingToMemory: vi.fn(),
+    getEntityById: vi.fn().mockResolvedValue(null as Entity | null),
+    getRoom: vi.fn().mockResolvedValue(null as Room | null),
+    createEntity: vi.fn().mockResolvedValue({} as Entity),
+    createRoom: vi.fn().mockResolvedValue({} as Room),
+    addParticipant: vi.fn(),
+    getRooms: vi.fn().mockResolvedValue([]),
+    registerSendHandler: vi.fn(),
+    sendMessageToTarget: vi.fn(),
+    db: { 
+      getMemoriesByWorldId: vi.fn().mockResolvedValue([]),
+    } as any,
+  } as unknown as IAgentRuntime; 
 
-  return runtime;
+  return { runtime: runtimeInstance, servicesMap: services };
 };
 
 // Mock message and state
 const createMockMessage = (text: string): Memory => ({
-  id: '12345678-1234-1234-1234-123456789abc',
-  agentId: '12345678-1234-1234-1234-123456789abc',
-  entityId: '12345678-1234-1234-1234-123456789def',
-  roomId: '12345678-1234-1234-1234-123456789ghi',
+  id: '12345678-1234-1234-1234-123456789abc' as const,
+  agentId: 'agent-12345678-1234-1234-1234-123456789abc' as const,
+  entityId: 'entity-12345678-1234-1234-1234-123456789def' as const,
+  roomId: 'room-12345678-1234-1234-1234-123456789ghi' as const,
   content: { text },
   createdAt: Date.now(),
 });
@@ -68,24 +133,25 @@ const createMockState = (additionalData: Record<string, any> = {}): State => ({
   ...additionalData,
 });
 
-let mockRuntime: IAgentRuntime;
+
+let mockRuntimeInstance: IAgentRuntime;
+let servicesMap: Map<ServiceTypeName, Service>;
 
 describe('Robot Plugin Integration', () => {
-  beforeEach(() => {
+  beforeEach(async () => { 
     vi.clearAllMocks();
-    mockRuntime = createMockRuntime();
+    const { runtime, servicesMap: sm } = createMockRuntime();
+    mockRuntimeInstance = runtime;
+    servicesMap = sm; 
 
-    // Setup default mock responses for AI models
-    mockRuntime.useModel = vi
-      .fn()
-      .mockImplementation((modelType: (typeof ModelType)[keyof typeof ModelType], input: any) => {
+    (mockRuntimeInstance.useModel as ReturnType<typeof vi.fn>).mockImplementation(async (modelType: string, input: any) => { 
         switch (modelType) {
+          case ModelType.IMAGE_DESCRIPTION:
+            return 'A screenshot showing a desktop with various windows and applications';
           case ModelType.TEXT_SMALL:
-            return Promise.resolve(
-              'A screenshot showing a desktop with various windows and applications'
-            );
+            return 'Sample text from OCR';
           case ModelType.OBJECT_SMALL:
-            return Promise.resolve([
+            return [
               {
                 label: 'button',
                 bbox: { x: 100, y: 200, width: 80, height: 30 },
@@ -94,13 +160,23 @@ describe('Robot Plugin Integration', () => {
                 label: 'text_field',
                 bbox: { x: 50, y: 100, width: 200, height: 25 },
               },
-            ]);
-          case ModelType.IMAGE_DESCRIPTION:
-            return Promise.resolve('Sample text from OCR');
+            ];
           default:
-            return Promise.resolve('');
+            return '';
         }
       });
+      await (mockRuntimeInstance.registerService as Function)(RobotService);
+      const robotServiceInstance = mockRuntimeInstance.getService(RobotServiceType.ROBOT) as RobotService;
+      if (robotServiceInstance && typeof robotServiceInstance.start === 'function') {
+        await robotServiceInstance.start();
+      }
+  });
+
+  afterAll(async () => {
+    const service = mockRuntimeInstance.getService(RobotServiceType.ROBOT) as RobotService;
+    if (service && typeof service.stop === 'function') {
+        await service.stop();
+    }
   });
 
   describe('plugin structure', () => {
@@ -123,160 +199,152 @@ describe('Robot Plugin Integration', () => {
 
   describe('service registration and initialization', () => {
     it('should register and start the RobotService', async () => {
-      await mockRuntime.registerService(RobotService);
-
-      expect(mockRuntime.registerService).toHaveBeenCalledWith(RobotService);
-
-      const service = mockRuntime.getService('ROBOT');
+      const service = mockRuntimeInstance.getService(RobotServiceType.ROBOT);
       expect(service).toBeInstanceOf(RobotService);
-      expect(service.capabilityDescription).toBe(
-        'Controls the screen and provides recent screen context.'
+      expect(service!.capabilityDescription).toBe(
+        'Controls the screen and provides recent screen context with intelligent change detection and local OCR.'
       );
     });
 
     it('should validate action when service is registered', async () => {
-      await mockRuntime.registerService(RobotService);
-
       const message = createMockMessage('test');
       const state = createMockState();
-      const isValid = await performScreenAction.validate(mockRuntime, message, state);
+      const isValid = await performScreenAction.validate(mockRuntimeInstance, message, state);
       expect(isValid).toBe(true);
     });
 
     it('should fail action validation when service is not registered', async () => {
+      const { runtime: emptyRuntime } = createMockRuntime(); 
       const message = createMockMessage('test');
       const state = createMockState();
-      const isValid = await performScreenAction.validate(mockRuntime, message, state);
+      const isValid = await performScreenAction.validate(emptyRuntime, message, state);
       expect(isValid).toBe(false);
     });
   });
 
   describe('end-to-end screen control workflow', () => {
-    beforeEach(async () => {
-      await mockRuntime.registerService(RobotService);
-    });
-
     it('should capture screen context and perform actions', async () => {
-      const service = mockRuntime.getService('ROBOT') as RobotService;
       const message = createMockMessage('click on the submit button');
       const state = createMockState();
       const mockCallback = vi.fn();
 
-      // First, get screen context via provider
-      const providerResult = await screenProvider.get(mockRuntime, message, state);
+      const providerResult = await screenProvider.get(mockRuntimeInstance, message, state);
 
-      expect(providerResult.text).toContain('# Screen Description');
+      expect(providerResult.text).toContain('# Current Screen Description');
       expect(providerResult.text).toContain(
         'A screenshot showing a desktop with various windows and applications'
       );
-      expect(providerResult.text).toContain('# OCR');
+      expect(providerResult.text).toContain('# Text on Screen (OCR)');
       expect(providerResult.text).toContain('Sample text from OCR');
-      expect(providerResult.text).toContain('# Objects');
+      expect(providerResult.text).toContain('# Interactive Objects');
       expect(providerResult.text).toContain('button at (100,200)');
 
-      // Then perform screen action
       const actionOptions = {
         steps: [
-          { action: 'move', x: 100, y: 200 },
-          { action: 'click', button: 'left' },
+          { action: 'move', x: 100, y: 200 } as ScreenActionStep,
+          { action: 'click', button: 'left' } as ScreenActionStep,
         ],
       };
 
-      await performScreenAction.handler(mockRuntime, message, state, actionOptions, mockCallback);
+      await performScreenAction.handler(mockRuntimeInstance, message, state, actionOptions, mockCallback);
 
       expect(mockCallback).toHaveBeenCalledWith({
-        thought: 'Executed screen actions',
-        text: 'Screen actions executed.',
+        thought: 'Executed 2 screen actions successfully',
+        text: 'Screen actions completed: moved mouse to (100, 200), clicked left mouse button.',
       });
     });
 
     it('should handle complex multi-step workflow', async () => {
-      const service = mockRuntime.getService('ROBOT') as RobotService;
       const message = createMockMessage('fill out the form');
       const state = createMockState();
       const mockCallback = vi.fn();
 
-      // Get initial screen context
-      const initialContext = await screenProvider.get(mockRuntime, message, state);
-      expect(initialContext.data.objects).toHaveLength(2);
+      const initialContext = await screenProvider.get(mockRuntimeInstance, message, state);
+      expect((initialContext.data as ScreenContext).objects).toHaveLength(2); 
 
-      // Perform complex action sequence
       const actionOptions = {
         steps: [
-          { action: 'move', x: 50, y: 100 }, // Move to text field
-          { action: 'click', button: 'left' }, // Click text field
-          { action: 'type', text: 'test@example.com' }, // Type email
-          { action: 'move', x: 100, y: 200 }, // Move to button
-          { action: 'click', button: 'left' }, // Click submit
+          { action: 'move', x: 50, y: 100 } as ScreenActionStep, 
+          { action: 'click', button: 'left' } as ScreenActionStep, 
+          { action: 'type', text: 'test@example.com' } as ScreenActionStep, 
+          { action: 'move', x: 100, y: 200 } as ScreenActionStep, 
+          { action: 'click', button: 'left' } as ScreenActionStep, 
         ],
       };
 
-      await performScreenAction.handler(mockRuntime, message, state, actionOptions, mockCallback);
+      await performScreenAction.handler(mockRuntimeInstance, message, state, actionOptions, mockCallback);
 
       expect(mockCallback).toHaveBeenCalledWith({
-        thought: 'Executed screen actions',
-        text: 'Screen actions executed.',
+        thought: 'Executed 5 screen actions successfully',
+        text: 'Screen actions completed: moved mouse to (50, 100), clicked left mouse button, typed "test@example.com", moved mouse to (100, 200), clicked left mouse button.',
       });
 
-      // Verify all actions were called in sequence
       expect(mockRobotJs.moveMouse).toHaveBeenCalledWith(50, 100);
-      expect(mockRobotJs.mouseClick).toHaveBeenCalledWith('left');
+      expect(mockRobotJs.mouseClick).toHaveBeenCalledWith('left', false); 
       expect(mockRobotJs.typeString).toHaveBeenCalledWith('test@example.com');
       expect(mockRobotJs.moveMouse).toHaveBeenCalledWith(100, 200);
-      expect(mockRobotJs.mouseClick).toHaveBeenCalledWith('left');
+      expect(mockRobotJs.mouseClick).toHaveBeenCalledWith('left', false); 
     });
 
     it('should handle screen context caching', async () => {
-      const service = mockRuntime.getService('ROBOT') as RobotService;
       const message = createMockMessage('test message');
       const state = createMockState();
 
-      // Get context multiple times quickly
-      const context1 = await screenProvider.get(mockRuntime, message, state);
-      const context2 = await screenProvider.get(mockRuntime, message, state);
+      const context1 = await screenProvider.get(mockRuntimeInstance, message, state);
+      const service = mockRuntimeInstance.getService(RobotServiceType.ROBOT) as RobotService;
+      const performUpdateSpy = vi.spyOn(service as any, 'performUpdate'); 
 
-      // Should be the same cached context
-      expect(context1.data).toBe(context2.data);
+      const context2 = await screenProvider.get(mockRuntimeInstance, message, state);
 
-      // Verify screen capture was only called once due to caching
+      expect(context1.data).toEqual(context2.data);
       expect(mockRobotJs.screen.capture).toHaveBeenCalledTimes(1);
+      expect(performUpdateSpy).not.toHaveBeenCalled(); 
     });
 
     it('should handle AI model failures gracefully', async () => {
-      // Mock AI model failures
-      mockRuntime.useModel = vi.fn().mockRejectedValue(new Error('AI model failed'));
+      (mockRuntimeInstance.useModel as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('AI model failed'));
 
       const message = createMockMessage('test message');
       const state = createMockState();
 
-      const result = await screenProvider.get(mockRuntime, message, state);
+      const result = await screenProvider.get(mockRuntimeInstance, message, state);
 
-      // Should still provide basic context even with AI failures
-      expect(result.values.description).toBe('');
+      expect(result.values.serviceStatus).toBe('processing');
+      expect(result.values.currentDescription).toBe('');
       expect(result.values.ocr).toBe('');
-      expect(result.data.objects).toEqual([]);
-      expect(result.data.screenshot).toBeInstanceOf(Buffer);
+      expect(result.values.objects).toEqual([]);
+      expect((result.data as {serviceStatus: string}).serviceStatus).toBe('processing');
     });
 
     it('should handle service cleanup', async () => {
-      const service = mockRuntime.getService('ROBOT') as RobotService;
-
-      // Service should be available
+      const service = mockRuntimeInstance.getService(RobotServiceType.ROBOT) as RobotService;
       expect(service).toBeDefined();
+      
+      const originalUseModel = mockRuntimeInstance.useModel;
+      (mockRuntimeInstance.useModel as ReturnType<typeof vi.fn>).mockImplementation(async (modelType: string, input: any) => {
+        switch (modelType) {
+          case ModelType.IMAGE_DESCRIPTION:
+            return 'Description';
+          case ModelType.TEXT_SMALL:
+            return 'OCR';
+          case ModelType.OBJECT_SMALL:
+            return [];
+          default:
+            return '';
+        }
+      });
+      await service.getContext(); 
+      mockRuntimeInstance.useModel = originalUseModel; 
 
-      // Stop the service
       await service.stop();
-
-      // Should not throw errors
-      expect(true).toBe(true);
+      if ((service as any).tesseractWorker) {
+         expect((service as any).tesseractWorker.terminate).toHaveBeenCalled();
+      }
+      vi.spyOn(service, 'stop').mockResolvedValue(undefined); 
     });
   });
 
   describe('error handling and edge cases', () => {
-    beforeEach(async () => {
-      await mockRuntime.registerService(RobotService);
-    });
-
     it('should handle invalid action parameters', async () => {
       const message = createMockMessage('invalid action');
       const state = createMockState();
@@ -284,25 +352,23 @@ describe('Robot Plugin Integration', () => {
 
       const actionOptions = {
         steps: [
-          { action: 'move', x: 100 }, // Missing y coordinate
-          { action: 'type' }, // Missing text
-          { action: 'unknown_action' }, // Unknown action
-          { action: 'click', button: 'right' }, // Valid action
+          { action: 'move', x: 100 } as ScreenActionStep, 
+          { action: 'type' } as ScreenActionStep, 
+          { action: 'unknown_action' } as any, 
+          { action: 'click', button: 'right' } as ScreenActionStep, 
         ],
       };
 
-      await performScreenAction.handler(mockRuntime, message, state, actionOptions, mockCallback);
+      await performScreenAction.handler(mockRuntimeInstance, message, state, actionOptions, mockCallback);
 
-      // Should still complete successfully, skipping invalid actions
       expect(mockCallback).toHaveBeenCalledWith({
-        thought: 'Executed screen actions',
-        text: 'Screen actions executed.',
+        thought: 'Executed 1 screen actions successfully',
+        text: 'Screen actions completed: skipped invalid step: {"action":"move","x":100}, skipped invalid step: {"action":"type"}, skipped invalid step: {"action":"unknown_action"}, clicked right mouse button.',
       });
 
-      // Only the valid click action should have been executed
       expect(mockRobotJs.moveMouse).not.toHaveBeenCalled();
       expect(mockRobotJs.typeString).not.toHaveBeenCalled();
-      expect(mockRobotJs.mouseClick).toHaveBeenCalledWith('right');
+      expect(mockRobotJs.mouseClick).toHaveBeenCalledWith('right', false);
     });
 
     it('should handle empty action steps', async () => {
@@ -312,11 +378,11 @@ describe('Robot Plugin Integration', () => {
 
       const actionOptions = { steps: [] };
 
-      await performScreenAction.handler(mockRuntime, message, state, actionOptions, mockCallback);
+      await performScreenAction.handler(mockRuntimeInstance, message, state, actionOptions, mockCallback);
 
       expect(mockCallback).toHaveBeenCalledWith({
-        thought: 'Executed screen actions',
-        text: 'Screen actions executed.',
+        thought: 'No valid steps provided',
+        text: 'Unable to perform screen action - no valid steps were provided.',
       });
     });
 
@@ -325,70 +391,86 @@ describe('Robot Plugin Integration', () => {
       const state = createMockState();
       const mockCallback = vi.fn();
 
-      await performScreenAction.handler(mockRuntime, message, state, {}, mockCallback);
+      await performScreenAction.handler(mockRuntimeInstance, message, state, {}, mockCallback);
 
       expect(mockCallback).toHaveBeenCalledWith({
-        thought: 'Executed screen actions',
-        text: 'Screen actions executed.',
+        thought: 'No valid steps provided',
+        text: 'Unable to perform screen action - no valid steps were provided.',
       });
     });
 
     it('should handle provider errors when service is unavailable', async () => {
-      // Create runtime without the service
-      const emptyRuntime = createMockRuntime();
+      const { runtime: emptyRuntime, servicesMap: localServicesMap } = createMockRuntime();
+      localServicesMap.delete(RobotServiceType.ROBOT as ServiceTypeName); 
+      vi.mocked(emptyRuntime.getService).mockImplementation((serviceName: string) => localServicesMap.get(serviceName as ServiceTypeName));
+      (emptyRuntime.useModel as ReturnType<typeof vi.fn>) = vi.fn(); 
+
       const message = createMockMessage('test message');
       const state = createMockState();
 
       const result = await screenProvider.get(emptyRuntime, message, state);
 
-      expect(result.values).toEqual({});
-      expect(result.text).toBe('RobotService unavailable');
-      expect(result.data).toEqual({});
+      expect(result.values).toEqual({ 
+        serviceStatus: 'initializing',
+        dataAge: 'unavailable',
+        currentDescription: '',
+        ocr: '',
+        objects: [],
+        changeDetected: false,
+        pixelDifferencePercentage: undefined,
+        historyCount: 0,
+        isStale: false,
+      });
+      expect(result.text).toBe(
+        '# Screen Context\n\n🔄 **Robot Service Initializing**\n\nThe robot service is still starting up. Screen context will be available once initialization is complete.\n\n**Status**: Service not yet available\n**Expected**: Available after service initialization'
+      );
+      expect(result.data).toEqual({ serviceStatus: 'initializing' });
     });
   });
 
   describe('performance and resource management', () => {
-    beforeEach(async () => {
-      await mockRuntime.registerService(RobotService);
-    });
-
     it('should handle rapid successive calls efficiently', async () => {
       const message = createMockMessage('rapid calls');
       const state = createMockState();
 
       const startTime = Date.now();
 
-      // Make multiple rapid calls
       const promises = Array.from({ length: 5 }, () =>
-        screenProvider.get(mockRuntime, message, state)
+        screenProvider.get(mockRuntimeInstance, message, state)
       );
 
       const results = await Promise.all(promises);
       const endTime = Date.now();
 
-      // All should succeed
       expect(results).toHaveLength(5);
       results.forEach((result) => {
-        expect(result.data.screenshot).toBeInstanceOf(Buffer);
+        expect(result.data).toBeInstanceOf(Object);
+        if (result.data && typeof result.data === 'object' && 'screenshot' in result.data) {
+            expect((result.data as ScreenContext).screenshot).toBeInstanceOf(Buffer);
+        } else {
+            expect(result.data).toHaveProperty('screenshot');
+        }
       });
 
-      // Should be reasonably fast (under 1 second for mocked operations)
-      expect(endTime - startTime).toBeLessThan(1000);
+      expect(endTime - startTime).toBeLessThan(1000); 
     });
 
     it('should handle memory cleanup properly', async () => {
-      const service = mockRuntime.getService('ROBOT') as RobotService;
+      const service = mockRuntimeInstance.getService(RobotServiceType.ROBOT) as RobotService;
+      if (!service) throw new Error("RobotService not found during cleanup test setup");
+      if (!(service as any).tesseractWorker && typeof service.start === 'function') { 
+        await service.start(); 
+      }
 
-      // Generate some screen contexts
       for (let i = 0; i < 3; i++) {
         await service.updateContext();
       }
 
-      // Stop service should clean up resources
       await service.stop();
-
-      // Should not throw errors
-      expect(true).toBe(true);
+      if ((service as any).tesseractWorker) { 
+        expect((service as any).tesseractWorker.terminate).toHaveBeenCalled();
+      }
+      vi.spyOn(service, 'stop').mockResolvedValue(undefined);
     });
   });
 });

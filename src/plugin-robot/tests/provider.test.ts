@@ -1,33 +1,33 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { screenProvider } from '../provider.js';
-import { RobotService, type ScreenContext, type ScreenObject } from '../service.js';
-import type { IAgentRuntime, Memory, State } from '@elizaos/core';
+import { screenProvider } from '../provider';
+import { RobotService } from '../service';
+import type { IAgentRuntime, Memory, State, ModelType } from '@elizaos/core';
+import type { ScreenContext, ScreenObject } from '../types';
 
 // Mock the RobotService
 const mockRobotService = {
-  getContext: vi.fn(),
-  updateContext: vi.fn(),
   moveMouse: vi.fn(),
   click: vi.fn(),
   typeText: vi.fn(),
+  getContext: vi.fn(),
+  updateContext: vi.fn(),
   stop: vi.fn(),
-  capabilityDescription: 'Controls the screen and provides recent screen context.',
-} as unknown as RobotService;
+  capabilityDescription:
+    'Controls the screen and provides recent screen context with intelligent change detection and local OCR.',
+};
 
 // Mock the runtime
 const mockRuntime = {
-  agentId: '12345678-1234-1234-1234-123456789abc' as const,
-  getService: vi.fn(() => mockRobotService),
+  getService: vi.fn(() => mockRobotService as unknown as RobotService),
   useModel: vi.fn(),
   emitEvent: vi.fn(),
 } as unknown as IAgentRuntime;
 
-// Mock message and state
 const createMockMessage = (text: string): Memory => ({
   id: '12345678-1234-1234-1234-123456789abc',
-  agentId: '12345678-1234-1234-1234-123456789abc',
-  entityId: '12345678-1234-1234-1234-123456789def',
-  roomId: '12345678-1234-1234-1234-123456789ghi',
+  agentId: 'agent-12345678-1234-1234-1234-123456789abc',
+  entityId: 'entity-12345678-1234-1234-1234-123456789def',
+  roomId: 'room-12345678-1234-1234-1234-123456789ghi',
   content: { text },
   createdAt: Date.now(),
 });
@@ -41,64 +41,67 @@ const createMockState = (additionalData: Record<string, any> = {}): State => ({
 
 const createMockScreenContext = (overrides: Partial<ScreenContext> = {}): ScreenContext => ({
   screenshot: Buffer.from('mock-screenshot-data'),
-  description: 'A desktop with various windows and applications',
+  currentDescription: 'A desktop with various windows and applications',
+  descriptionHistory: [], // Added descriptionHistory
   ocr: 'Sample text from screen',
   objects: [
-    {
-      label: 'button',
-      bbox: { x: 100, y: 200, width: 80, height: 30 },
-    },
-    {
-      label: 'text_field',
-      bbox: { x: 50, y: 100, width: 200, height: 25 },
-    },
+    { label: 'button', bbox: { x: 100, y: 200, width: 50, height: 20 } },
+    { label: 'text_field', bbox: { x: 50, y: 100, width: 150, height: 25 } },
   ],
   timestamp: Date.now(),
+  changeDetected: true,
+  pixelDifferencePercentage: 15.5,
   ...overrides,
 });
 
 describe('screenProvider', () => {
+  let message: Memory;
+  let state: State;
+  let mockContext: ScreenContext;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    message = createMockMessage('get screen context');
+    state = createMockState();
+    mockContext = createMockScreenContext();
+    mockRobotService.getContext = vi.fn().mockResolvedValue(mockContext);
   });
 
   describe('provider properties', () => {
     it('should have correct provider properties', () => {
       expect(screenProvider.name).toBe('SCREEN_CONTEXT');
       expect(screenProvider.description).toBe(
-        'Latest screen description, OCR results and detected objects.'
+        'Current screen context with OCR, description history, and change detection information.'
       );
       expect(screenProvider.position).toBe(50);
+      expect(typeof screenProvider.get).toBe('function');
     });
   });
 
   describe('get method', () => {
-    const message = createMockMessage('test message');
-    const state = createMockState();
-
     it('should return screen context when service is available', async () => {
-      const mockContext = createMockScreenContext();
-      mockRobotService.getContext = vi.fn().mockResolvedValue(mockContext);
-
       const result = await screenProvider.get(mockRuntime, message, state);
 
-      expect(mockRuntime.getService).toHaveBeenCalledWith('ROBOT');
       expect(mockRobotService.getContext).toHaveBeenCalled();
-
       expect(result.values).toEqual({
-        description: mockContext.description,
+        currentDescription: mockContext.currentDescription,
         ocr: mockContext.ocr,
+        objects: mockContext.objects,
+        changeDetected: mockContext.changeDetected,
+        pixelDifferencePercentage: mockContext.pixelDifferencePercentage,
+        historyCount: mockContext.descriptionHistory.length,
+        serviceStatus: 'active',
+        dataAge: expect.any(String),
+        isStale: false,
       });
-
-      expect(result.text).toContain('# Screen Description');
-      expect(result.text).toContain(mockContext.description);
-      expect(result.text).toContain('# OCR');
+      expect(result.text).toContain('# Current Screen Description');
+      expect(result.text).toContain(mockContext.currentDescription);
+      expect(result.text).toContain('# Text on Screen (OCR)');
       expect(result.text).toContain(mockContext.ocr);
-      expect(result.text).toContain('# Objects');
+      expect(result.text).toContain('# Interactive Objects');
       expect(result.text).toContain('button at (100,200)');
       expect(result.text).toContain('text_field at (50,100)');
-
-      expect(result.data).toBe(mockContext);
+      expect(result.data).toEqual(mockContext);
     });
 
     it('should handle service not available', async () => {
@@ -106,189 +109,159 @@ describe('screenProvider', () => {
         ...mockRuntime,
         getService: vi.fn(() => null),
       } as unknown as IAgentRuntime;
-
       const result = await screenProvider.get(runtimeWithoutService, message, state);
 
-      expect(result.values).toEqual({});
-      expect(result.text).toBe('RobotService unavailable');
-      expect(result.data).toEqual({});
+      expect(result.values).toEqual({
+        serviceStatus: 'initializing',
+        dataAge: 'unavailable',
+        currentDescription: '',
+        ocr: '',
+        objects: [],
+        changeDetected: false,
+        pixelDifferencePercentage: undefined,
+        historyCount: 0,
+        isStale: false,
+      });
+      expect(result.text).toContain('Robot Service Initializing');
+      expect(result.data).toEqual({ serviceStatus: 'initializing' });
     });
 
     it('should handle empty objects list', async () => {
-      const mockContext = createMockScreenContext({
-        objects: [],
-      });
+      mockContext.objects = [];
       mockRobotService.getContext = vi.fn().mockResolvedValue(mockContext);
-
       const result = await screenProvider.get(mockRuntime, message, state);
 
-      expect(result.text).toContain('# Objects');
-      expect(result.text).toContain('None');
+      expect(result.text).toContain('# Interactive Objects');
+      expect(result.text).toContain('No object data available');
+      expect(result.values.objects).toEqual([]);
     });
 
     it('should handle multiple objects', async () => {
-      const mockContext = createMockScreenContext({
-        objects: [
-          {
-            label: 'button',
-            bbox: { x: 100, y: 200, width: 80, height: 30 },
-          },
-          {
-            label: 'text_field',
-            bbox: { x: 50, y: 100, width: 200, height: 25 },
-          },
-          {
-            label: 'image',
-            bbox: { x: 300, y: 150, width: 150, height: 100 },
-          },
-        ],
-      });
+      mockContext.objects = [
+        { label: 'button', bbox: { x: 100, y: 200, width: 50, height: 20 } },
+        { label: 'text_field', bbox: { x: 50, y: 100, width: 150, height: 25 } },
+        { label: 'image', bbox: { x: 300, y: 150, width: 100, height: 100 } },
+      ];
       mockRobotService.getContext = vi.fn().mockResolvedValue(mockContext);
-
       const result = await screenProvider.get(mockRuntime, message, state);
 
       expect(result.text).toContain('button at (100,200)');
       expect(result.text).toContain('text_field at (50,100)');
       expect(result.text).toContain('image at (300,150)');
+      expect(result.values.objects).toEqual(mockContext.objects);
     });
 
     it('should handle empty description', async () => {
-      const mockContext = createMockScreenContext({
-        description: '',
-      });
+      mockContext.currentDescription = '';
       mockRobotService.getContext = vi.fn().mockResolvedValue(mockContext);
-
       const result = await screenProvider.get(mockRuntime, message, state);
 
-      expect(result.values.description).toBe('');
-      expect(result.text).toContain('# Screen Description');
-      expect(result.text).toContain('\n\n');
+      expect(result.values.currentDescription).toBe('');
+      expect(result.text).toContain('# Current Screen Description');
+      expect(result.text).toContain('No description available');
     });
 
     it('should handle empty OCR', async () => {
-      const mockContext = createMockScreenContext({
-        ocr: '',
-      });
+      mockContext.ocr = '';
       mockRobotService.getContext = vi.fn().mockResolvedValue(mockContext);
-
       const result = await screenProvider.get(mockRuntime, message, state);
 
       expect(result.values.ocr).toBe('');
-      expect(result.text).toContain('# OCR');
-      expect(result.text).toContain('\n\n');
+      expect(result.text).toContain('# Text on Screen (OCR)');
+      expect(result.text).toContain('No text detected');
     });
 
     it('should handle service errors gracefully', async () => {
       mockRobotService.getContext = vi.fn().mockRejectedValue(new Error('Service error'));
-
-      await expect(screenProvider.get(mockRuntime, message, state)).rejects.toThrow(
-        'Service error'
-      );
+      const result = await screenProvider.get(mockRuntime, message, state);
+      expect(result.values).toEqual({
+        serviceStatus: 'processing', // This is the fallback when getContext rejects
+        dataAge: 'processing',
+        currentDescription: '',
+        ocr: '',
+        objects: [],
+        changeDetected: false,
+        pixelDifferencePercentage: undefined,
+        historyCount: 0,
+        isStale: false,
+      });
+      expect(result.text).toContain('Processing Screen Data'); // This is the fallback text
+      expect(result.data).toEqual({ serviceStatus: 'processing' });
     });
 
     it('should format text with proper headers', async () => {
-      const mockContext = createMockScreenContext({
-        description: 'Test description',
-        ocr: 'Test OCR text',
-        objects: [
-          {
-            label: 'test_object',
-            bbox: { x: 10, y: 20, width: 30, height: 40 },
-          },
-        ],
-      });
+      mockContext.descriptionHistory = [{ description: 'Old screen', relativeTime: '5 minutes ago', timestamp: Date.now() - 300000 }];
       mockRobotService.getContext = vi.fn().mockResolvedValue(mockContext);
-
       const result = await screenProvider.get(mockRuntime, message, state);
-
       const lines = result.text.split('\n\n');
-      expect(lines[0]).toContain('# Screen Description');
-      expect(lines[0]).toContain('Test description');
-      expect(lines[1]).toContain('# OCR');
-      expect(lines[1]).toContain('Test OCR text');
-      expect(lines[2]).toContain('# Objects');
-      expect(lines[2]).toContain('test_object at (10,20)');
+
+      expect(lines[0]).toContain('# Current Screen Description');
+      expect(lines[0]).toContain(mockContext.currentDescription);
+      expect(lines[1]).toContain('# Recent Screen History');
+      expect(lines[1]).toContain('1. 5 minutes ago: Old screen');
+      expect(lines[2]).toContain('# Text on Screen (OCR)');
+      expect(lines[2]).toContain(mockContext.ocr);
+      expect(lines[3]).toContain('# Interactive Objects');
+      expect(lines[3]).toContain('button at (100,200)');
+      expect(lines[4]).toContain('# Processing Status');
+      expect(lines[5]).toContain('# Data Freshness');
     });
 
     it('should handle objects with special characters in labels', async () => {
-      const mockContext = createMockScreenContext({
-        objects: [
-          {
-            label: 'button-submit',
-            bbox: { x: 100, y: 200, width: 80, height: 30 },
-          },
-          {
-            label: 'text_field_email',
-            bbox: { x: 50, y: 100, width: 200, height: 25 },
-          },
-          {
-            label: 'icon@2x',
-            bbox: { x: 300, y: 150, width: 24, height: 24 },
-          },
-        ],
-      });
+      mockContext.objects = [
+        { label: 'button-submit', bbox: { x: 100, y: 200, width: 50, height: 20 } },
+        { label: 'text_field_email', bbox: { x: 50, y: 100, width: 150, height: 25 } },
+        { label: 'icon@2x', bbox: { x: 300, y: 150, width: 100, height: 100 } },
+      ];
       mockRobotService.getContext = vi.fn().mockResolvedValue(mockContext);
-
       const result = await screenProvider.get(mockRuntime, message, state);
 
       expect(result.text).toContain('button-submit at (100,200)');
       expect(result.text).toContain('text_field_email at (50,100)');
       expect(result.text).toContain('icon@2x at (300,150)');
+      expect(result.values.objects).toEqual(mockContext.objects);
     });
 
     it('should handle negative coordinates', async () => {
-      const mockContext = createMockScreenContext({
-        objects: [
-          {
-            label: 'off_screen_element',
-            bbox: { x: -10, y: -20, width: 50, height: 30 },
-          },
-        ],
-      });
+      mockContext.objects = [
+        { label: 'off_screen_element', bbox: { x: -10, y: -20, width: 50, height: 20 } },
+      ];
       mockRobotService.getContext = vi.fn().mockResolvedValue(mockContext);
-
       const result = await screenProvider.get(mockRuntime, message, state);
 
       expect(result.text).toContain('off_screen_element at (-10,-20)');
+      expect(result.values.objects).toEqual(mockContext.objects);
     });
 
     it('should handle large coordinates', async () => {
-      const mockContext = createMockScreenContext({
-        objects: [
-          {
-            label: 'large_screen_element',
-            bbox: { x: 9999, y: 8888, width: 100, height: 50 },
-          },
-        ],
-      });
+      mockContext.objects = [
+        { label: 'large_screen_element', bbox: { x: 9999, y: 8888, width: 50, height: 20 } },
+      ];
       mockRobotService.getContext = vi.fn().mockResolvedValue(mockContext);
-
       const result = await screenProvider.get(mockRuntime, message, state);
 
       expect(result.text).toContain('large_screen_element at (9999,8888)');
+      expect(result.values.objects).toEqual(mockContext.objects);
     });
 
     it('should preserve all context data in result.data', async () => {
-      const mockContext = createMockScreenContext();
-      mockRobotService.getContext = vi.fn().mockResolvedValue(mockContext);
-
       const result = await screenProvider.get(mockRuntime, message, state);
-
-      expect(result.data).toEqual(mockContext);
-      expect(result.data.screenshot).toBeInstanceOf(Buffer);
-      expect(result.data.timestamp).toBe(mockContext.timestamp);
+      expect(result.data).toEqual(mockContext); // This should be the full context object
+      if (result.data && 'screenshot' in result.data) { // Type guard for screenshot
+         expect((result.data as ScreenContext).screenshot).toBeInstanceOf(Buffer);
+      }
+      if (result.data && 'timestamp' in result.data) { // Type guard for timestamp
+        expect((result.data as ScreenContext).timestamp).toBe(mockContext.timestamp);
+      }
     });
 
     it('should handle unicode characters in description and OCR', async () => {
-      const mockContext = createMockScreenContext({
-        description: 'Desktop with 中文 characters and émojis 🌟',
-        ocr: 'Text with ñoñó and café',
-      });
+      mockContext.currentDescription = 'Desktop with 中文 characters and émojis 🌟';
+      mockContext.ocr = 'Text with ñoñó and café';
       mockRobotService.getContext = vi.fn().mockResolvedValue(mockContext);
-
       const result = await screenProvider.get(mockRuntime, message, state);
 
-      expect(result.values.description).toBe('Desktop with 中文 characters and émojis 🌟');
+      expect(result.values.currentDescription).toBe('Desktop with 中文 characters and émojis 🌟');
       expect(result.values.ocr).toBe('Text with ñoñó and café');
       expect(result.text).toContain('Desktop with 中文 characters and émojis 🌟');
       expect(result.text).toContain('Text with ñoñó and café');

@@ -1,7 +1,7 @@
 import { type Plugin } from '@elizaos/core';
-import { RobotService } from './service';
-import { performScreenAction } from './action';
-import { screenProvider } from './provider';
+import { RobotService } from './service.ts';
+import { performScreenAction } from './action.ts';
+import { screenProvider } from './provider.ts';
 import './types'; // Ensure module augmentation is loaded
 
 export const robotPlugin: Plugin = {
