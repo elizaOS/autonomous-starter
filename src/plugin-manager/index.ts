@@ -5,7 +5,7 @@ import { PluginUserInteractionService } from "./services/pluginUserInteractionSe
 import { loadPluginAction } from "./actions/loadPlugin";
 import { unloadPluginAction } from "./actions/unloadPlugin";
 import { startPluginConfigurationAction } from "./actions/startPluginConfiguration";
-import { installPluginFromRegistryAction } from "./actions/installPluginFromRegistry";
+import { installPluginFromRegistryAction } from "./actions/installPluginFromRegistry.js";
 import { pluginStateProvider } from "./providers/pluginStateProvider";
 import { pluginConfigurationStatusProvider } from "./providers/pluginConfigurationStatus";
 import { registryPluginsProvider } from "./providers/registryPluginsProvider";

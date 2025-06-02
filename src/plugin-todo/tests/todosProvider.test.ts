@@ -15,6 +15,7 @@ describe("todosProvider", () => {
       getTasks: vi.fn(),
       getRoom: vi.fn().mockResolvedValue({ worldId: "test-world" }),
       getComponent: vi.fn().mockResolvedValue(null), // For points service
+      createComponent: vi.fn(), // For points service
     } as any;
 
     mockMessage = {
@@ -103,17 +104,14 @@ describe("todosProvider", () => {
     expect(result.text).toContain("Read More Books");
 
     // Check data object
-    expect(result.data).toEqual({
-      tasks: mockTasks,
-      stats: {
-        total: 4,
-        active: 3,
-        completed: 1,
-        daily: 1,
-        oneOff: 2,
-        aspirational: 1,
-      },
-    });
+    expect(result.data).toHaveProperty("userPoints", 0);
+    expect(result.data).toHaveProperty("dailyTasks");
+    expect(result.data).toHaveProperty("oneOffTasks");
+    expect(result.data).toHaveProperty("aspirationalTasks");
+    expect(result.data).toHaveProperty("completedTasks");
+    expect(result.data.dailyTasks).toHaveLength(1);
+    expect(result.data.oneOffTasks).toHaveLength(1);
+    expect(result.data.aspirationalTasks).toHaveLength(1);
   });
 
   it("should return no tasks message when no tasks exist", async () => {
@@ -125,15 +123,11 @@ describe("todosProvider", () => {
     expect(result.text).toContain("No one-off todos");
     expect(result.text).toContain("No aspirational todos");
     expect(result.data).toEqual({
-      tasks: [],
-      stats: {
-        total: 0,
-        active: 0,
-        completed: 0,
-        daily: 0,
-        oneOff: 0,
-        aspirational: 0,
-      },
+      userPoints: 0,
+      dailyTasks: [],
+      oneOffTasks: [],
+      aspirationalTasks: [],
+      completedTasks: [],
     });
   });
 

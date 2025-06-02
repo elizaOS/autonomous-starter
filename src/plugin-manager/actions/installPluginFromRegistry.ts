@@ -26,71 +26,48 @@ export const installPluginFromRegistryAction: Action = {
 
     // Extract plugin name from message content
     const content = message.content.text.toLowerCase();
+    const pluginNameMatch =
+      content.match(
+        /install\s+(?:plugin\s+)?(?:from\s+registry\s+)?([^\s]+)/i,
+      ) ||
+      content.match(/add\s+(?:plugin\s+)?([^\s]+)/i) ||
+      content.match(/download\s+(?:plugin\s+)?([^\s]+)/i) ||
+      content.match(/get\s+(?:plugin\s+)?([^\s]+)/i);
 
-    // Simple plugin name extraction - in production this would be more sophisticated
-    const words = content.split(" ");
-    let pluginName = "";
-    let version: string | undefined;
-
-    // Look for plugin name patterns
-    for (let i = 0; i < words.length; i++) {
-      if (words[i].startsWith("@") || words[i].startsWith("plugin-")) {
-        pluginName = words[i];
-        // Check if next word is a version
-        if (words[i + 1] && words[i + 1].match(/^\d+\.\d+\.\d+/)) {
-          version = words[i + 1];
-        }
-        break;
-      }
+    if (!pluginNameMatch || !pluginNameMatch[1]) {
+      return 'Please specify a plugin name to install. Example: "install plugin @elizaos/plugin-example"';
     }
 
-    if (!pluginName) {
-      return 'Please specify a plugin name to install (e.g., "@elizaos/plugin-example")';
-    }
+    const pluginName = pluginNameMatch[1];
 
     try {
-      const pluginInfo = await pluginManagerService.installPluginFromRegistry(
-        pluginName,
-        version,
-      );
+      const pluginInfo =
+        await pluginManagerService.installPluginFromRegistry(pluginName);
 
-      let response = `Successfully installed ${pluginInfo.name} v${pluginInfo.version}`;
-
-      if (pluginInfo.requiredEnvVars.length > 0) {
-        response +=
-          "\n\nThis plugin requires the following environment variables:";
-        for (const envVar of pluginInfo.requiredEnvVars) {
-          response += `\n- ${envVar.name}: ${envVar.description}`;
-        }
-        response += "\n\nPlease configure these before loading the plugin.";
-      } else {
-        response += "\n\nThe plugin is ready to be loaded.";
+      if (pluginInfo.status === "needs_configuration") {
+        return (
+          `Plugin ${pluginInfo.name} has been installed but requires configuration:\n` +
+          pluginInfo.requiredEnvVars
+            .map(
+              (v) =>
+                `- ${v.name}: ${v.description}${v.sensitive ? " (sensitive)" : ""}`,
+            )
+            .join("\n") +
+          '\n\nUse "configure plugin" to set up the required environment variables.'
+        );
       }
 
-      return response;
+      return (
+        `Successfully installed plugin ${pluginInfo.name} v${pluginInfo.version}. ` +
+        `Use "load plugin ${pluginName}" to activate it.`
+      );
     } catch (error: any) {
-      return `Failed to install plugin ${pluginName}: ${error.message}`;
+      return `Failed to install plugin: ${error.message}`;
     }
   },
 
-  async validate(
-    runtime: IAgentRuntime,
-    message: Memory,
-    state?: State,
-  ): Promise<boolean> {
-    const content = message.content.text.toLowerCase();
-
-    // Check if the message is about installing a plugin from registry
-    const installKeywords = ["install", "add", "download", "get"];
-    const registryKeywords = ["plugin", "registry"];
-
-    const hasInstallKeyword = installKeywords.some((keyword) =>
-      content.includes(keyword),
-    );
-    const hasRegistryKeyword = registryKeywords.some((keyword) =>
-      content.includes(keyword),
-    );
-
-    return hasInstallKeyword && hasRegistryKeyword;
+  validate: async (runtime: IAgentRuntime) => {
+    const pluginManagerService = runtime.getService("PLUGIN_MANAGER");
+    return !!pluginManagerService;
   },
 };

@@ -17,12 +17,223 @@ import {
   PluginManagerServiceType,
 } from "../types";
 import { v4 as uuidv4 } from "uuid";
+import path from "path";
+import fs from "fs-extra";
+
+// Registry installation types and functions
+interface RegistryEntry {
+  name: string;
+  description?: string;
+  repository: string;
+  npm?: {
+    repo: string;
+    v1?: string;
+  };
+  git?: {
+    repo: string;
+    v1?: {
+      branch?: string;
+      version?: string;
+    };
+  };
+}
+
+interface DynamicPluginInfo {
+  name: string;
+  version: string;
+  status:
+    | "installed"
+    | "loaded"
+    | "active"
+    | "inactive"
+    | "error"
+    | "needs_configuration";
+  path: string;
+  requiredEnvVars: Array<{
+    name: string;
+    description: string;
+    sensitive: boolean;
+    isSet: boolean;
+  }>;
+  errorDetails?: string;
+  installedAt: Date;
+  lastActivated?: Date;
+}
+
+const REGISTRY_URL =
+  "https://raw.githubusercontent.com/elizaos-plugins/registry/refs/heads/main/index.json";
+const CACHE_DURATION = 3600000; // 1 hour
+
+let registryCache: {
+  data: Record<string, RegistryEntry>;
+  timestamp: number;
+} | null = null;
+
+// Function to reset cache for testing
+export function resetRegistryCache(): void {
+  registryCache = null;
+}
+
+// Registry functions
+async function getLocalRegistryIndex(): Promise<Record<string, RegistryEntry>> {
+  // Check cache first
+  if (registryCache && Date.now() - registryCache.timestamp < CACHE_DURATION) {
+    return registryCache.data;
+  }
+
+  try {
+    const response = await fetch(REGISTRY_URL);
+    if (!response.ok) {
+      throw new Error(`Registry fetch failed: ${response.statusText}`);
+    }
+
+    const data = (await response.json()) as Record<string, RegistryEntry>;
+
+    // Cache the result
+    registryCache = {
+      data,
+      timestamp: Date.now(),
+    };
+
+    return data;
+  } catch (error) {
+    logger.error("Failed to fetch plugin registry:", error);
+
+    // Return cached data if available, otherwise empty registry
+    if (registryCache) {
+      logger.warn("Using stale registry cache");
+      return registryCache.data;
+    }
+
+    // Return empty registry as fallback
+    return {};
+  }
+}
+
+// Real plugin installation function using npm/git
+async function installPlugin(
+  pluginName: string,
+  targetDir: string,
+  version?: string,
+): Promise<void> {
+  logger.info(
+    `Installing ${pluginName}${version ? `@${version}` : ""} to ${targetDir}`,
+  );
+
+  try {
+    // Ensure target directory exists
+    await fs.ensureDir(targetDir);
+
+    // Get registry entry to determine installation method
+    const registry = await getLocalRegistryIndex();
+    const entry = registry[pluginName];
+
+    if (!entry) {
+      throw new Error(`Plugin ${pluginName} not found in registry`);
+    }
+
+    // Determine installation method
+    if (entry.npm?.repo) {
+      // Install from npm
+      const packageName = entry.npm.repo;
+      const packageVersion = version || entry.npm.v1 || "latest";
+
+      await installFromNpm(packageName, packageVersion, targetDir);
+    } else if (entry.git?.repo) {
+      // Install from git
+      const gitRepo = entry.git.repo;
+      const gitVersion =
+        version || entry.git.v1?.version || entry.git.v1?.branch || "main";
+
+      await installFromGit(gitRepo, gitVersion, targetDir);
+    } else {
+      throw new Error(
+        `No installation method available for plugin ${pluginName}`,
+      );
+    }
+  } catch (error: any) {
+    logger.error(`Failed to install plugin ${pluginName}:`, error);
+    throw error; // Re-throw to preserve specific error messages
+  }
+}
+
+// Install plugin from npm
+async function installFromNpm(
+  packageName: string,
+  version: string,
+  targetDir: string,
+): Promise<void> {
+  logger.info(`Installing npm package ${packageName}@${version}`);
+
+  try {
+    const { execa } = await import("execa");
+
+    // Install the package to the target directory
+    await execa(
+      "npm",
+      ["install", `${packageName}@${version}`, "--prefix", targetDir],
+      {
+        stdio: "pipe",
+      },
+    );
+  } catch (error: any) {
+    logger.error(`Failed to install npm package:`, error);
+    throw error;
+  }
+}
+
+// Install plugin from git repository
+async function installFromGit(
+  gitRepo: string,
+  version: string,
+  targetDir: string,
+): Promise<void> {
+  logger.info(`Installing git repository ${gitRepo}#${version}`);
+
+  try {
+    const { execa } = await import("execa");
+
+    // Clone the repository to a temporary directory
+    const tempDir = path.join(targetDir, "..", "temp-" + Date.now());
+    await fs.ensureDir(tempDir);
+
+    try {
+      // Clone the repository
+      await execa("git", ["clone", gitRepo, tempDir], {
+        stdio: "pipe",
+      });
+
+      // Checkout specific version/branch if specified
+      if (version !== "main" && version !== "master") {
+        await execa("git", ["checkout", version], {
+          cwd: tempDir,
+          stdio: "pipe",
+        });
+      }
+
+      // Install dependencies
+      await execa("npm", ["install"], {
+        cwd: tempDir,
+        stdio: "pipe",
+      });
+
+      // Copy to target directory
+      await fs.copy(tempDir, targetDir);
+    } finally {
+      // Clean up temp directory
+      await fs.remove(tempDir);
+    }
+  } catch (error: any) {
+    logger.error(`Failed to install git repository:`, error);
+    throw error;
+  }
+}
 
 export class PluginManagerService extends Service implements PluginRegistry {
   static override serviceType: ServiceTypeName =
     PluginManagerServiceType.PLUGIN_MANAGER;
   override capabilityDescription =
-    "Manages dynamic loading and unloading of plugins at runtime";
+    "Manages dynamic loading and unloading of plugins at runtime, including registry installation";
 
   public plugins: Map<string, PluginState> = new Map();
   private pluginManagerConfig: PluginManagerConfig;
@@ -31,6 +242,9 @@ export class PluginManagerService extends Service implements PluginRegistry {
   private originalProviders: Set<string> = new Set();
   private originalEvaluators: Set<string> = new Set();
   private originalServices: Set<string> = new Set();
+
+  // Add registry installation state management
+  private installedPlugins: Map<string, DynamicPluginInfo> = new Map();
 
   constructor(runtime: IAgentRuntime, config?: PluginManagerConfig) {
     super(runtime);
@@ -430,5 +644,193 @@ export class PluginManagerService extends Service implements PluginRegistry {
   async stop(): Promise<void> {
     logger.info("[PluginManagerService] Stopping...");
     // Clean up any resources
+  }
+
+  // Registry installation methods
+  async installPluginFromRegistry(
+    pluginName: string,
+    version?: string,
+  ): Promise<DynamicPluginInfo> {
+    logger.info(
+      `Installing plugin from registry: ${pluginName}${version ? `@${version}` : ""}`,
+    );
+
+    const pluginDir = this.getPluginInstallPath(pluginName);
+
+    try {
+      // Ensure plugin directory exists
+      await fs.ensureDir(path.dirname(pluginDir));
+
+      // Install using real installation function
+      await installPlugin(pluginName, pluginDir, version);
+
+      // Parse plugin metadata
+      const metadata = await this.parsePluginMetadata(pluginDir);
+
+      // Create plugin info
+      const pluginInfo: DynamicPluginInfo = {
+        name: metadata.name,
+        version: metadata.version,
+        status:
+          metadata.requiredEnvVars.length > 0
+            ? "needs_configuration"
+            : "installed",
+        path: pluginDir,
+        requiredEnvVars: metadata.requiredEnvVars,
+        installedAt: new Date(),
+      };
+
+      this.installedPlugins.set(pluginName, pluginInfo);
+
+      logger.success(`Plugin ${pluginName} installed successfully`);
+      return pluginInfo;
+    } catch (error: any) {
+      logger.error(`Failed to install plugin ${pluginName}:`, error);
+      throw error; // Re-throw original error instead of wrapping it
+    }
+  }
+
+  async loadInstalledPlugin(pluginName: string): Promise<string> {
+    const pluginInfo = this.installedPlugins.get(pluginName);
+
+    if (!pluginInfo) {
+      throw new Error(`Plugin ${pluginName} is not installed`);
+    }
+
+    if (pluginInfo.status === "needs_configuration") {
+      throw new Error(
+        `Plugin ${pluginName} requires configuration before loading`,
+      );
+    }
+
+    try {
+      // Load the plugin module
+      const pluginModule = await this.loadPluginModule(pluginInfo.path);
+
+      if (!pluginModule) {
+        throw new Error("Failed to load plugin module");
+      }
+
+      // Register with existing plugin manager
+      const pluginId = await this.registerPlugin(pluginModule);
+
+      // Load the plugin
+      await this.loadPlugin({ pluginId });
+
+      pluginInfo.status = "loaded";
+
+      logger.success(`Plugin ${pluginName} loaded successfully`);
+      return pluginId;
+    } catch (error: any) {
+      logger.error(`Failed to load plugin ${pluginName}:`, error);
+      pluginInfo.status = "error";
+      pluginInfo.errorDetails = error.message;
+      throw error;
+    }
+  }
+
+  async getAvailablePluginsFromRegistry(): Promise<
+    Record<string, RegistryEntry>
+  > {
+    return await getLocalRegistryIndex();
+  }
+
+  getInstalledPluginInfo(pluginName: string): DynamicPluginInfo | undefined {
+    return this.installedPlugins.get(pluginName);
+  }
+
+  listInstalledPlugins(): DynamicPluginInfo[] {
+    return Array.from(this.installedPlugins.values());
+  }
+
+  private getPluginInstallPath(pluginName: string): string {
+    const sanitizedName = pluginName.replace(/[^a-zA-Z0-9-_]/g, "_");
+    return path.join(
+      this.pluginManagerConfig.pluginDirectory || "./plugins",
+      "installed",
+      sanitizedName,
+    );
+  }
+
+  private async parsePluginMetadata(pluginPath: string): Promise<{
+    name: string;
+    version: string;
+    requiredEnvVars: Array<{
+      name: string;
+      description: string;
+      sensitive: boolean;
+      isSet: boolean;
+    }>;
+  }> {
+    const packageJsonPath = path.join(pluginPath, "package.json");
+    const packageJson = await fs.readJson(packageJsonPath);
+
+    if (!packageJson) {
+      throw new Error(`Failed to read package.json from ${packageJsonPath}`);
+    }
+
+    const requiredEnvVarsConfig = packageJson.elizaos?.requiredEnvVars || [];
+    const requiredEnvVars = requiredEnvVarsConfig.map((v: any) => ({
+      name: v.name,
+      description: v.description,
+      sensitive: v.sensitive || false,
+      isSet: false,
+    }));
+
+    return {
+      name: packageJson.name || "unknown",
+      version: packageJson.version || "0.0.0",
+      requiredEnvVars,
+    };
+  }
+
+  private async loadPluginModule(pluginPath: string): Promise<Plugin | null> {
+    try {
+      const packageJsonPath = path.join(pluginPath, "package.json");
+      let mainEntry = pluginPath;
+
+      if (await fs.pathExists(packageJsonPath)) {
+        const packageJson = await fs.readJson(packageJsonPath);
+        if (packageJson.main) {
+          mainEntry = path.resolve(pluginPath, packageJson.main);
+        }
+      }
+
+      if (!path.isAbsolute(mainEntry)) {
+        mainEntry = path.resolve(mainEntry);
+      }
+
+      const module = await import(mainEntry);
+
+      // Find the plugin export
+      if (module.default && this.isValidPlugin(module.default)) {
+        return module.default;
+      }
+
+      for (const key of Object.keys(module)) {
+        if (this.isValidPlugin(module[key])) {
+          return module[key];
+        }
+      }
+
+      logger.error(`Could not find a valid plugin export in ${mainEntry}`);
+      return null;
+    } catch (error: any) {
+      logger.error(`Failed to load plugin module from ${pluginPath}:`, error);
+      return null;
+    }
+  }
+
+  private isValidPlugin(obj: any): obj is Plugin {
+    return (
+      obj &&
+      typeof obj === "object" &&
+      obj.name &&
+      (obj.actions ||
+        obj.services ||
+        obj.providers ||
+        obj.evaluators ||
+        obj.init)
+    );
   }
 }

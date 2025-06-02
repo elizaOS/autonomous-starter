@@ -212,7 +212,7 @@ describe("TodoReminderService", () => {
 
     // Should not throw error
     await service.checkTasksNow();
-    
+
     // If we get here without throwing, the test passes
     expect(true).toBe(true);
   });

@@ -1,9 +1,4 @@
-// TODO: Fix vi.mock issues in this test file
-// This test is temporarily disabled due to vitest mocking issues
-// The registry functionality is part of Task Group 1, not Task Group 2
-
-/*
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import {
   PluginManagerService,
   resetRegistryCache,
@@ -15,25 +10,48 @@ import {
   type ServiceTypeName,
   createUniqueUuid,
 } from "@elizaos/core";
-import fs from "fs-extra";
+import type * as FSExtra from "fs-extra";
 import path from "path";
 
-// Mock modules at the top level
-vi.stubbing = true;
+// Mock fs-extra module
+vi.mock("fs-extra", () => {
+  const mockReadJson = vi.fn().mockImplementation(async (filePath) => {
+    const pathStr = typeof filePath === "string" ? filePath : String(filePath);
+    if (pathStr.includes("package.json")) {
+      return {
+        name: "@elizaos/plugin-example",
+        version: "1.0.0",
+        main: "index.js",
+        elizaos: {
+          requiredEnvVars: [],
+        },
+      };
+    }
+    throw new Error(`Mock not configured for ${pathStr}`);
+  });
 
-// Mock fs-extra methods
-vi.stubGlobal('fs', {
-  ensureDir: vi.fn().mockResolvedValue(undefined),
-  readJson: vi.fn(),
-  writeJson: vi.fn().mockResolvedValue(undefined),
-  copy: vi.fn().mockResolvedValue(undefined),
-  remove: vi.fn().mockResolvedValue(undefined),
+  return {
+    default: {
+      ensureDir: vi.fn().mockResolvedValue(undefined),
+      readJson: mockReadJson,
+      writeJson: vi.fn().mockResolvedValue(undefined),
+      copy: vi.fn().mockResolvedValue(undefined),
+      remove: vi.fn().mockResolvedValue(undefined),
+      pathExists: vi.fn().mockResolvedValue(true),
+    },
+    ensureDir: vi.fn().mockResolvedValue(undefined),
+    readJson: mockReadJson,
+    writeJson: vi.fn().mockResolvedValue(undefined),
+    copy: vi.fn().mockResolvedValue(undefined),
+    remove: vi.fn().mockResolvedValue(undefined),
+    pathExists: vi.fn().mockResolvedValue(true),
+  };
 });
 
 // Mock execa
-vi.stubGlobal('execa', {
+vi.mock("execa", () => ({
   execa: vi.fn().mockResolvedValue({ stdout: "", stderr: "" }),
-});
+}));
 
 // Mock registry data
 const mockRegistry = {
@@ -96,8 +114,9 @@ const createMockRuntime = (): IAgentRuntime => {
 describe("Registry Installation", () => {
   let runtime: IAgentRuntime;
   let pluginManager: PluginManagerService;
+  let fs: typeof FSExtra;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     resetRegistryCache(); // Reset the module-level cache between tests
 
@@ -105,10 +124,15 @@ describe("Registry Installation", () => {
     pluginManager = new PluginManagerService(runtime);
     runtime.services.set("PLUGIN_MANAGER" as ServiceTypeName, pluginManager);
 
-    // Reset fs-extra mocks
-    (fs.ensureDir as vi.Mock).mockResolvedValue(undefined);
-    (fs.readJson as vi.Mock).mockImplementation(async (filePath) => {
-      if (filePath.includes("package.json")) {
+    // Get mocked fs-extra
+    fs = await import("fs-extra");
+
+    // Reset the mock implementation to default
+    vi.mocked(fs.readJson).mockClear();
+    vi.mocked(fs.readJson).mockImplementation(async (filePath) => {
+      const pathStr =
+        typeof filePath === "string" ? filePath : String(filePath);
+      if (pathStr.includes("package.json")) {
         return {
           name: "@elizaos/plugin-example",
           version: "1.0.0",
@@ -118,11 +142,12 @@ describe("Registry Installation", () => {
           },
         };
       }
-      throw new Error(`Mock not configured for ${filePath}`);
+      throw new Error(`Mock not configured for ${pathStr}`);
     });
-    (fs.writeJson as vi.Mock).mockResolvedValue(undefined);
-    (fs.copy as vi.Mock).mockResolvedValue(undefined);
-    (fs.remove as vi.Mock).mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    vi.resetModules();
   });
 
   describe("getAvailablePluginsFromRegistry", () => {
@@ -147,9 +172,7 @@ describe("Registry Installation", () => {
     });
 
     it("should handle registry fetch errors gracefully", async () => {
-      (global.fetch as vi.Mock).mockRejectedValueOnce(
-        new Error("Network error"),
-      );
+      vi.mocked(global.fetch).mockRejectedValueOnce(new Error("Network error"));
 
       const registry = await pluginManager.getAvailablePluginsFromRegistry();
 
@@ -158,10 +181,13 @@ describe("Registry Installation", () => {
   });
 
   describe("installPluginFromRegistry", () => {
+    let execa: any;
+
     beforeEach(async () => {
       // Mock execa for npm and git commands
-      const { execa } = vi.mocked(await import("execa"));
-      (execa as vi.Mock).mockResolvedValue({ stdout: "", stderr: "" });
+      const execaMod = await import("execa");
+      execa = execaMod.execa;
+      vi.mocked(execa).mockResolvedValue({ stdout: "", stderr: "" } as any);
     });
 
     it("should install plugin from npm repository", async () => {
@@ -179,7 +205,6 @@ describe("Registry Installation", () => {
         installedAt: expect.any(Date),
       });
 
-      const { execa } = await import("execa");
       expect(execa).toHaveBeenCalledWith(
         "npm",
         [
@@ -207,7 +232,6 @@ describe("Registry Installation", () => {
         installedAt: expect.any(Date),
       });
 
-      const { execa } = await import("execa");
       expect(execa).toHaveBeenCalledWith(
         "git",
         [
@@ -220,8 +244,10 @@ describe("Registry Installation", () => {
     });
 
     it("should handle plugins with required environment variables", async () => {
-      (fs.readJson as vi.Mock).mockImplementation(async (filePath) => {
-        if (filePath.includes("package.json")) {
+      vi.mocked(fs.readJson).mockImplementation(async (filePath) => {
+        const pathStr =
+          typeof filePath === "string" ? filePath : String(filePath);
+        if (pathStr.includes("package.json")) {
           return {
             name: "@elizaos/plugin-with-config",
             version: "1.0.0",
@@ -237,7 +263,7 @@ describe("Registry Installation", () => {
             },
           };
         }
-        throw new Error(`Mock not configured for ${filePath}`);
+        throw new Error(`Mock not configured for ${pathStr}`);
       });
 
       const pluginName = "@elizaos/plugin-npm-example";
@@ -265,8 +291,7 @@ describe("Registry Installation", () => {
     });
 
     it("should throw error when installation fails", async () => {
-      const { execa } = vi.mocked(await import("execa"));
-      (execa as vi.Mock).mockRejectedValueOnce(new Error("npm install failed"));
+      vi.mocked(execa).mockRejectedValueOnce(new Error("npm install failed"));
 
       const pluginName = "@elizaos/plugin-npm-example";
 
@@ -324,11 +349,14 @@ describe("Registry Installation", () => {
 
     it("should throw error for plugin requiring configuration", async () => {
       // Install plugin with required configuration
-      (fs.readJson as vi.Mock).mockImplementation(async (filePath) => {
-        if (filePath.includes("package.json")) {
+      vi.mocked(fs.readJson).mockImplementation(async (filePath) => {
+        const pathStr =
+          typeof filePath === "string" ? filePath : String(filePath);
+        if (pathStr.includes("package.json")) {
           return {
             name: "@elizaos/plugin-with-config",
             version: "1.0.0",
+            main: "index.js",
             elizaos: {
               requiredEnvVars: [
                 {
@@ -340,7 +368,7 @@ describe("Registry Installation", () => {
             },
           };
         }
-        throw new Error(`Mock not configured for ${filePath}`);
+        throw new Error(`Mock not configured for ${pathStr}`);
       });
 
       const pluginName = "@elizaos/plugin-npm-example";
@@ -398,4 +426,3 @@ describe("Registry Installation", () => {
     });
   });
 });
-*/
