@@ -5,6 +5,7 @@ import {
   logger,
   type Task,
 } from "@elizaos/core";
+import { createComponentService } from "./services/componentService";
 
 // Define the structure for the points component data
 interface UserPointsData {
@@ -81,7 +82,8 @@ export async function getPoints(
   worldId: UUID,
 ): Promise<number> {
   try {
-    let component = (await runtime.getComponent(
+    const componentService = createComponentService(runtime);
+    let component = (await componentService.getComponent(
       entityId,
       POINT_COMPONENT_TYPE,
     )) as UserPointsComponent | null;
@@ -96,7 +98,6 @@ export async function getPoints(
         history: [],
       };
 
-      // Removed logic to find valid roomId/worldId
       // Use the provided parameters directly
       if (!roomId || !worldId) {
         logger.error(
@@ -109,15 +110,15 @@ export async function getPoints(
         `Creating points component for entity ${entityId} using provided roomId ${roomId} and worldId ${worldId}.`,
       );
 
-      await runtime.createComponent({
+      await componentService.createComponent({
         entityId: entityId,
-        agentId: runtime.agentId, // Assuming agent manages this component
+        agentId: runtime.agentId,
         type: POINT_COMPONENT_TYPE,
         data: newComponentData,
-        roomId: roomId, // Use provided roomId
-        worldId: worldId, // Use provided worldId
-        sourceEntityId: runtime.agentId, // Agent creates it
-      } as any); // Cast to any to bypass incorrect type requirement
+        roomId: roomId,
+        worldId: worldId,
+        sourceEntityId: runtime.agentId,
+      });
       return 0;
     }
     return component.data.currentPoints;
@@ -141,7 +142,8 @@ export async function addPoints(
   if (pointsToAdd === 0) return true; // Nothing to add
 
   try {
-    let component = (await runtime.getComponent(
+    const componentService = createComponentService(runtime);
+    let component = (await componentService.getComponent(
       entityId,
       POINT_COMPONENT_TYPE,
     )) as UserPointsComponent | null;
@@ -159,7 +161,6 @@ export async function addPoints(
       );
       currentData = { currentPoints: 0, history: [] };
 
-      // Removed logic to find valid roomId/worldId
       // Use the provided parameters directly
       if (!roomId || !worldId) {
         logger.error(
@@ -173,15 +174,15 @@ export async function addPoints(
       );
 
       // Create component before updating
-      const createdComponentId = await runtime.createComponent({
+      const createdComponentId = await componentService.createComponent({
         entityId: entityId,
         agentId: runtime.agentId,
         type: POINT_COMPONENT_TYPE,
         data: currentData,
-        roomId: roomId, // Use provided roomId
-        worldId: worldId, // Use provided worldId
+        roomId: roomId,
+        worldId: worldId,
         sourceEntityId: runtime.agentId,
-      } as any); // Cast to any to bypass incorrect type requirement
+      });
 
       if (!createdComponentId) {
         logger.error(
@@ -191,7 +192,7 @@ export async function addPoints(
       }
       // Since createComponent returns boolean in current core types, we have to refetch.
       // Ideally, it would return the component or ID.
-      component = (await runtime.getComponent(
+      component = (await componentService.getComponent(
         entityId,
         POINT_COMPONENT_TYPE,
       )) as UserPointsComponent | null;
@@ -240,8 +241,8 @@ export async function addPoints(
     );
 
     // Update the component
-    await runtime.updateComponent({
-      id: componentIdToUpdate, // Use the determined component ID
+    await componentService.updateComponent({
+      id: componentIdToUpdate,
       entityId: entityId,
       agentId: componentAgentId,
       roomId: componentRoomId,

@@ -46,17 +46,8 @@ export class TaskService {
     entityId?: UUID;
   }): Promise<UUID | null> {
     try {
-      // Format data for database
-      const formattedParams = {
-        ...params,
-        tags: params.tags ? dbCompat.formatArray(params.tags) : undefined,
-        metadata: params.metadata ? dbCompat.formatJson(params.metadata) : undefined,
-        roomId: params.roomId ? dbCompat.formatUuid(params.roomId) : undefined,
-        worldId: params.worldId ? dbCompat.formatUuid(params.worldId) : undefined,
-        entityId: params.entityId ? dbCompat.formatUuid(params.entityId) : undefined,
-      };
-
-      const taskId = await this.runtime.createTask(formattedParams as any);
+      // Pass params directly to runtime - it handles database-specific formatting internally
+      const taskId = await this.runtime.createTask(params as any);
       return taskId;
     } catch (error) {
       logger.error("[TaskService] Error creating task:", error);
@@ -76,22 +67,8 @@ export class TaskService {
     }
   ): Promise<boolean> {
     try {
-      // Format updates for database
-      const formattedUpdates: any = {};
-
-      if (updates.tags !== undefined) {
-        formattedUpdates.tags = dbCompat.formatArray(updates.tags);
-      }
-
-      if (updates.metadata !== undefined) {
-        formattedUpdates.metadata = dbCompat.formatJson(updates.metadata);
-      }
-
-      if (updates.completed !== undefined) {
-        formattedUpdates.completed = dbCompat.formatBoolean(updates.completed);
-      }
-
-      await this.runtime.updateTask(taskId, formattedUpdates);
+      // Pass updates directly to runtime - it handles database-specific formatting internally
+      await this.runtime.updateTask(taskId, updates);
       return true;
     } catch (error) {
       logger.error("[TaskService] Error updating task:", error);

@@ -3,124 +3,103 @@ import {
   type IAgentRuntime,
   type Memory,
   type State,
-  generateText,
-  composeContext,
-  ModelClass,
   logger,
+  ModelType,
+  composePromptFromState,
 } from "@elizaos/core";
+import { CharacterModificationService } from "../services/character-modification-service";
 
-const evolutionAnalysisTemplate = `Analyze the recent conversation to determine if the agent should evolve its character.
+const evolutionAnalysisTemplate = `Analyze the recent conversation and determine if the agent's character should evolve based on what was learned.
 
-Current character traits:
+Current character state:
 {{characterState}}
 
 Recent conversation:
 {{recentMessages}}
 
 Consider:
-1. Are there repeated topics or interests that aren't reflected in the current character?
-2. Has the agent struggled to connect or communicate effectively?
-3. Are there new domains of knowledge the agent should incorporate?
-4. Would adjusting communication style improve interactions?
-5. Has the user expressed preferences that suggest character adaptations?
+1. Are there new topics or interests that emerged?
+2. Did the conversation reveal areas where the character could improve?
+3. Were there communication patterns that worked particularly well?
+4. Did the user express preferences about interaction style?
 
-Respond with one of:
-- SHOULD_EVOLVE: Character modification would be beneficial
-- NO_CHANGE_NEEDED: Current character is well-suited
-- CONSIDER_LATER: Potential for evolution but need more interactions
-
-Response:`;
+Respond with whether character evolution is recommended and why.`;
 
 export const characterEvolutionEvaluator: Evaluator = {
   name: "characterEvolution",
   description:
-    "Analyzes conversations to determine if character evolution would be beneficial",
+    "Analyzes conversations to determine if character should evolve",
 
-  similes: [],
-
-  validate: async (runtime: IAgentRuntime, message: Memory) => {
-    try {
-      // Only evaluate after meaningful conversations
-      let recentMessages: Memory[] = [];
-
-      // Check if getMemories method exists on runtime
-      if (
-        typeof (runtime as any).getMemories === "function" &&
-        message.roomId
-      ) {
-        try {
-          recentMessages = await (runtime as any).getMemories({
-            roomId: message.roomId,
-            count: 10,
-            tableName: "messages",
-          });
-        } catch (error) {
-          logger.debug("Failed to get memories:", error);
-        }
-      }
-
-      // Require at least 5 messages to evaluate
-      return recentMessages.length >= 5;
-    } catch (error) {
-      logger.error("Error in characterEvolution validate:", error);
-      return false;
-    }
+  validate: async (runtime: IAgentRuntime) => {
+    const modService = runtime.getService(
+      CharacterModificationService.serviceName,
+    );
+    return modService !== null;
   },
 
-  handler: async (
-    runtime: IAgentRuntime,
-    message: Memory,
-    state: State,
-    options?: any,
-    callback?: any,
-  ): Promise<void> => {
+  handler: async (runtime: IAgentRuntime, message: Memory, state: State) => {
+    const modService = runtime.getService(
+      CharacterModificationService.serviceName,
+    ) as CharacterModificationService;
+
+    if (!modService) {
+      logger.warn("Character modification service not available");
+      return;
+    }
+
+    // Check if conversation had enough substance
+    const recentMessages = await runtime.getMemories({
+      roomId: message.roomId,
+      count: 10,
+      tableName: "messages",
+    });
+    
+    if (!recentMessages || recentMessages.length < 5) {
+      logger.debug("Not enough messages for evolution analysis");
+      return;
+    }
+
     try {
-      const context = composeContext({
-        state,
+      // Compose the prompt with state values
+      const prompt = composePromptFromState({
+        state: {
+          values: {
+            characterState: JSON.stringify(runtime.character),
+            recentMessages: recentMessages
+              .map((m) => `${m.entityId}: ${m.content.text}`)
+              .join("\n"),
+          },
+          data: {},
+          text: "",
+        },
         template: evolutionAnalysisTemplate,
       });
 
-      const analysis = await generateText({
-        runtime,
-        context,
-        modelClass: ModelClass.MEDIUM,
+      const analysis = await runtime.useModel(ModelType.TEXT_LARGE, {
+        prompt,
       });
 
-      if (!analysis) {
-        logger.warn("No analysis generated for character evolution");
-        return;
-      }
+      // Simple heuristic: if the analysis mentions "recommend", "should", "evolve", etc.
+      const shouldEvolve =
+        analysis &&
+        (analysis.toLowerCase().includes("recommend") ||
+          analysis.toLowerCase().includes("should evolve") ||
+          analysis.toLowerCase().includes("would benefit"));
 
-      const decision = analysis.trim().toUpperCase();
+      if (shouldEvolve) {
+        logger.info("Character evolution recommended based on conversation");
 
-      if (decision.includes("SHOULD_EVOLVE")) {
-        // Log this for potential batch processing
-        logger.info(
-          "Character evolution recommended based on conversation analysis",
-        );
-
-        // Try to cache the recommendation if cache is available
-        if (typeof (runtime as any).setCache === "function" && message.roomId) {
-          try {
-            await (runtime as any).setCache(
-              `evolution_recommendation_${message.roomId}`,
-              {
-                timestamp: new Date(),
-                reason: analysis,
-                conversationId: message.id,
-              },
-            );
-          } catch (cacheError) {
-            logger.debug(
-              "Failed to cache evolution recommendation:",
-              cacheError,
-            );
-          }
-        }
-
-        logger.info("Character evolution analysis: Modification recommended");
-      } else {
-        logger.debug(`Character evolution analysis: ${decision}`);
+        // Create a task for character modification instead of directly calling processActions
+        await runtime.createTask({
+          name: "modifyCharacter",
+          id: runtime.generateId(),
+          agentId: runtime.agentId,
+          metadata: {
+            focusAreas: "recent conversation insights",
+            autoTrigger: true,
+          },
+          executionDate: new Date(),
+        });
       }
     } catch (error) {
       logger.error("Error in character evolution evaluator:", error);

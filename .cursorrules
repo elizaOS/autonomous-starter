@@ -11,7 +11,7 @@ packages/cli - The CLI which contains the agent runtime and starts up the REST A
 -> This is what runs in most 'bun run test' and 'bun run start' cases, etc
 -> 'elizaos' command is from here
 packages/plugin-bootstrap - Default event handlers, actions and providers
-packages/plugin-sql - DatabaseAdapter for Postgres and PGLite, soon others
+packages/plugin-sql - DatabaseAdapter for Postgres and Sqlite, soon others
 
 There are others but they are not as important
 
@@ -191,7 +191,7 @@ By default, agent events are registered in packages/plugin-bootstrap
 
 - **ORM**: Drizzle ORM with IDatabaseAdapter interface
 - **Adapters**:
-  - **PGLite**: Local development & testing (lightweight PostgreSQL in Node.js)
+  - **Sqlite**: Local development & testing (lightweight PostgreSQL in Node.js)
   - **PostgreSQL**: Production (vector search, scaling, high reliability)
 
 ## Code Style Guidelines

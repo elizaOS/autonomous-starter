@@ -202,37 +202,66 @@ export const routes: Route[] = [
     path: "/api/tags",
     handler: async (_req: any, res: any, runtime: IAgentRuntime) => {
       try {
+        logger.debug("[API /api/tags] Fetching all distinct tags");
+
         // Use runtime.db which should be the Drizzle instance from the adapter
         if (!runtime.db || typeof runtime.db.execute !== "function") {
           logger.error(
             "[API /api/tags] runtime.db is not available or not a Drizzle instance.",
           );
-          return res.status(500).send("Database connection not available");
+          return res.status(500).json({ error: "Database not available" });
         }
 
-        // Execute a raw SQL query to get distinct tags
-        // The specific query might need adjustment based on your SQL dialect (e.g., PostgreSQL)
-        const query = sql`SELECT DISTINCT unnest(tags) as tag FROM tasks WHERE tags IS NOT NULL;`;
-        // Cast runtime.db to access execute method if needed, or ensure adapter exposes it correctly
-        // Assuming runtime.db has an 'execute' method compatible with Drizzle's raw SQL execution
-        const result = await (runtime.db as any).execute(query);
+        // Detect database type
+        let dbType: 'sqlite' | 'postgres' | 'unknown' = 'unknown';
+        try {
+          // Try PostgreSQL detection
+          const connection = await runtime.getConnection();
+          if (connection && connection.constructor.name === 'Pool') {
+            dbType = 'postgres';
+          } else {
+            // Try SQLite detection
+            try {
+              await runtime.db.execute(sql`SELECT sqlite_version()`);
+              dbType = 'sqlite';
+            } catch {
+              // Not SQLite
+            }
+          }
+        } catch (error) {
+          logger.warn('Could not determine database type:', error);
+        }
+
+        let result: any;
+        
+        if (dbType === 'postgres') {
+          // PostgreSQL query using unnest
+          const query = sql`SELECT DISTINCT unnest(tags) as tag FROM tasks WHERE tags IS NOT NULL;`;
+          result = await runtime.db.execute(query);
+        } else {
+          // SQLite-compatible query using json_each
+          const query = sql`
+            SELECT DISTINCT json_each.value as tag 
+            FROM tasks, json_each(tasks.tags) 
+            WHERE tasks.tags IS NOT NULL AND tasks.tags != '[]'
+          `;
+          result = await runtime.db.execute(query);
+        }
 
         // Drizzle's execute might return results differently depending on the driver
         // Adapting for common patterns (e.g., pg driver returning 'rows')
-        const tags = Array.isArray(result)
-          ? result.map((row: any) => row.tag)
-          : (result as any).rows // Node-postgres likely returns object with 'rows'
-            ? (result as any).rows.map((row: { tag: string }) => row.tag)
-            : []; // Fallback
+        const tags =
+          Array.isArray(result)
+            ? result.map((row: any) => row.tag)
+            : (result as any).rows // Node-postgres likely returns object with 'rows'
+              ? (result as any).rows.map((row: any) => row.tag)
+              : [];
 
-        res.json(tags.filter(Boolean)); // Filter out any null/empty tags
+        logger.debug(`[API /api/tags] Found ${tags.length} distinct tags`);
+        res.json(tags);
       } catch (error) {
-        console.error("Error fetching unique tags:", error);
-        logger.error("[API /api/tags] Error fetching unique tags:", {
-          error: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-        });
-        res.status(500).send("Error fetching tags");
+        logger.error("[API /api/tags] Error fetching tags:", error);
+        res.status(500).json({ error: "Failed to fetch tags" });
       }
     },
   },

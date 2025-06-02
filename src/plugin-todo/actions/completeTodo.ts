@@ -16,6 +16,7 @@ import {
   formatMessages,
 } from "@elizaos/core";
 import { addPoints, calculatePoints } from "../pointsService";
+import { createTaskService } from "../services/taskService";
 
 // Interface for task completion properties
 interface TaskCompletion {
@@ -126,7 +127,8 @@ async function processDailyTaskCompletion(
 
   // Mark as completed for today by adding a completed tag temporarily
   // Update metadata BEFORE adding points to ensure it has the pointsAwarded
-  await runtime.updateTask(task.id, {
+  const taskService = createTaskService(runtime);
+  await taskService.updateTask(task.id, {
     tags: [...(task.tags || []), "completed"],
     metadata: {
       ...task.metadata,
@@ -176,7 +178,8 @@ async function processOneOffTaskCompletion(
   const points = calculatePoints(task, pointStatus);
 
   // Mark the task as completed
-  await runtime.updateTask(task.id, {
+  const taskService = createTaskService(runtime);
+  await taskService.updateTask(task.id, {
     tags: [...(task.tags || []), "completed"],
     metadata: {
       ...task.metadata,
@@ -213,7 +216,8 @@ async function processAspirationalTaskCompletion(
   const points = 50;
 
   // Mark the task as completed
-  await runtime.updateTask(task.id, {
+  const taskService = createTaskService(runtime);
+  await taskService.updateTask(task.id, {
     tags: [...(task.tags || []), "completed"],
     metadata: {
       ...task.metadata,
@@ -256,7 +260,8 @@ export const completeTodoAction: Action = {
   ): Promise<boolean> => {
     // Only validate if there are active (non-completed) todos in the current room
     try {
-      const tasks = await runtime.getTasks({
+      const taskService = createTaskService(runtime);
+      const tasks = await taskService.getTasks({
         roomId: message.roomId,
         tags: ["TODO"],
       });
@@ -288,7 +293,8 @@ export const completeTodoAction: Action = {
       const worldId =
         roomDetails?.worldId || createUniqueUuid(runtime, message.entityId);
       // Get all incomplete todos for this room
-      const incompleteTasks = await runtime.getTasks({
+      const taskService = createTaskService(runtime);
+      const incompleteTasks = await taskService.getTasks({
         roomId: message.roomId,
         tags: ["TODO"],
       });
@@ -386,7 +392,8 @@ export const completeTodoAction: Action = {
           `This is a significant accomplishment. You've earned ${pointsAwarded} points.`;
       } else {
         // Generic completion for any other todo type
-        await runtime.updateTask(task.id, {
+        const taskService = createTaskService(runtime);
+        await taskService.updateTask(task.id, {
           tags: [...(task.tags || []), "completed"],
           metadata: {
             ...task.metadata,

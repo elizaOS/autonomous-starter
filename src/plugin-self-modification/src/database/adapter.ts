@@ -2,11 +2,287 @@ import { type IDatabaseAdapter, type UUID, logger } from "@elizaos/core";
 import { type CharacterModification, type CharacterSnapshot } from "../types";
 
 /**
- * Database operations for character modifications
- * This will integrate with the SQL plugin when database tables are available
+ * Database adapter for character modification data
+ * Provides database-agnostic interface for both SQLite and PostgreSQL
  */
 export class CharacterModificationDatabaseAdapter {
   constructor(private adapter: IDatabaseAdapter) {}
+
+  /**
+   * Get database type to handle SQL differences
+   */
+  private async getDatabaseType(): Promise<'sqlite' | 'postgres' | 'unknown'> {
+    try {
+      // Try to get connection and determine type
+      const connection = await this.adapter.getConnection();
+      
+      // Check if it's a Sqlite or Pool (PostgreSQL)
+      if (connection && connection.constructor.name === 'Pool') {
+        return 'postgres';
+      }
+      
+      // Check if it's SQLite (by attempting a SQLite-specific query)
+      try {
+        if (this.adapter.db && typeof this.adapter.db.execute === 'function') {
+          await this.adapter.db.execute('SELECT sqlite_version()');
+          return 'sqlite';
+        }
+      } catch {
+        // Not SQLite
+      }
+      
+      return 'unknown';
+    } catch (error) {
+      logger.warn('Could not determine database type:', error);
+      return 'unknown';
+    }
+  }
+
+  /**
+   * Initialize database schema with compatibility for both SQLite and PostgreSQL
+   */
+  async initializeSchema(): Promise<void> {
+    const dbType = await this.getDatabaseType();
+    
+    if (dbType === 'sqlite') {
+      await this.initializeSQLiteSchema();
+    } else {
+      await this.initializePostgreSQLSchema();
+    }
+  }
+
+  private async initializeSQLiteSchema(): Promise<void> {
+    // SQLite-compatible schema
+    const queries = [
+      // Character modifications table
+      `CREATE TABLE IF NOT EXISTS character_modifications (
+        id TEXT PRIMARY KEY,
+        agent_id TEXT NOT NULL,
+        version_number INTEGER NOT NULL,
+        diff_xml TEXT NOT NULL,
+        reasoning TEXT NOT NULL,
+        applied_at TEXT NOT NULL DEFAULT (datetime('now')),
+        rolled_back_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE (agent_id, version_number)
+      )`,
+      
+      // Indexes
+      `CREATE INDEX IF NOT EXISTS idx_agent_version ON character_modifications(agent_id, version_number)`,
+      `CREATE INDEX IF NOT EXISTS idx_agent_applied ON character_modifications(agent_id, applied_at)`,
+      `CREATE INDEX IF NOT EXISTS idx_rolled_back ON character_modifications(rolled_back_at)`,
+      
+      // Character snapshots table
+      `CREATE TABLE IF NOT EXISTS character_snapshots (
+        id TEXT PRIMARY KEY,
+        agent_id TEXT NOT NULL,
+        version_number INTEGER NOT NULL,
+        character_data TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE (agent_id, version_number),
+        FOREIGN KEY (agent_id, version_number) 
+          REFERENCES character_modifications(agent_id, version_number)
+          ON DELETE CASCADE
+      )`,
+      
+      // Indexes for snapshots
+      `CREATE INDEX IF NOT EXISTS idx_snapshot_agent_version ON character_snapshots(agent_id, version_number)`,
+      `CREATE INDEX IF NOT EXISTS idx_snapshot_created ON character_snapshots(created_at)`,
+      
+      // Rate limiting table
+      `CREATE TABLE IF NOT EXISTS character_modification_rate_limits (
+        id TEXT PRIMARY KEY,
+        agent_id TEXT NOT NULL,
+        attempted_at TEXT NOT NULL DEFAULT (datetime('now')),
+        successful INTEGER NOT NULL DEFAULT 1
+      )`,
+      
+      // Index for rate limits
+      `CREATE INDEX IF NOT EXISTS idx_rate_limit_agent_time ON character_modification_rate_limits(agent_id, attempted_at)`,
+      
+      // Character modification lock table
+      `CREATE TABLE IF NOT EXISTS character_modification_locks (
+        agent_id TEXT PRIMARY KEY,
+        locked INTEGER NOT NULL DEFAULT 0,
+        locked_by TEXT,
+        locked_at TEXT,
+        lock_reason TEXT,
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      
+      // Evolution recommendations table
+      `CREATE TABLE IF NOT EXISTS character_evolution_recommendations (
+        id TEXT PRIMARY KEY,
+        agent_id TEXT NOT NULL,
+        room_id TEXT,
+        conversation_id TEXT,
+        recommendation TEXT NOT NULL,
+        analysis_result TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        processed INTEGER NOT NULL DEFAULT 0,
+        processed_at TEXT
+      )`,
+      
+      // Indexes for recommendations
+      `CREATE INDEX IF NOT EXISTS idx_recommendations_agent ON character_evolution_recommendations(agent_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_recommendations_unprocessed ON character_evolution_recommendations(agent_id, processed)`,
+      `CREATE INDEX IF NOT EXISTS idx_recommendations_created ON character_evolution_recommendations(created_at)`
+    ];
+
+    // Execute all queries
+    for (const query of queries) {
+      try {
+        if (this.adapter.db && typeof this.adapter.db.execute === 'function') {
+          await this.adapter.db.execute(query);
+        } else {
+          throw new Error('Database adapter does not support execute method');
+        }
+      } catch (error) {
+        logger.error('Error creating SQLite schema:', error);
+        throw error;
+      }
+    }
+  }
+
+  private async initializePostgreSQLSchema(): Promise<void> {
+    // PostgreSQL schema from the original schema.sql file
+    const query = `
+      -- Character Modifications Table
+      CREATE TABLE IF NOT EXISTS character_modifications (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          agent_id UUID NOT NULL,
+          version_number INTEGER NOT NULL,
+          diff_xml TEXT NOT NULL,
+          reasoning TEXT NOT NULL,
+          applied_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          rolled_back_at TIMESTAMP WITH TIME ZONE,
+          created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE (agent_id, version_number)
+      );
+
+      -- Indexes
+      CREATE INDEX IF NOT EXISTS idx_agent_version ON character_modifications(agent_id, version_number);
+      CREATE INDEX IF NOT EXISTS idx_agent_applied ON character_modifications(agent_id, applied_at);
+      CREATE INDEX IF NOT EXISTS idx_rolled_back ON character_modifications(rolled_back_at);
+
+      -- Character Snapshots Table
+      CREATE TABLE IF NOT EXISTS character_snapshots (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          agent_id UUID NOT NULL,
+          version_number INTEGER NOT NULL,
+          character_data JSONB NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE (agent_id, version_number),
+          FOREIGN KEY (agent_id, version_number) 
+              REFERENCES character_modifications(agent_id, version_number)
+              ON DELETE CASCADE
+      );
+
+      -- Indexes for snapshots
+      CREATE INDEX IF NOT EXISTS idx_snapshot_agent_version ON character_snapshots(agent_id, version_number);
+      CREATE INDEX IF NOT EXISTS idx_snapshot_created ON character_snapshots(created_at);
+
+      -- Rate Limiting Table
+      CREATE TABLE IF NOT EXISTS character_modification_rate_limits (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          agent_id UUID NOT NULL,
+          attempted_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          successful BOOLEAN NOT NULL DEFAULT true
+      );
+
+      -- Index for rate limits
+      CREATE INDEX IF NOT EXISTS idx_rate_limit_agent_time ON character_modification_rate_limits(agent_id, attempted_at);
+
+      -- Character Modification Lock Table
+      CREATE TABLE IF NOT EXISTS character_modification_locks (
+          agent_id UUID PRIMARY KEY,
+          locked BOOLEAN NOT NULL DEFAULT false,
+          locked_by TEXT,
+          locked_at TIMESTAMP WITH TIME ZONE,
+          lock_reason TEXT,
+          updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Evolution Recommendations Table
+      CREATE TABLE IF NOT EXISTS character_evolution_recommendations (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          agent_id UUID NOT NULL,
+          room_id UUID,
+          conversation_id UUID,
+          recommendation TEXT NOT NULL,
+          analysis_result TEXT NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          processed BOOLEAN NOT NULL DEFAULT false,
+          processed_at TIMESTAMP WITH TIME ZONE
+      );
+
+      -- Indexes for recommendations
+      CREATE INDEX IF NOT EXISTS idx_recommendations_agent ON character_evolution_recommendations(agent_id);
+      CREATE INDEX IF NOT EXISTS idx_recommendations_unprocessed ON character_evolution_recommendations(agent_id, processed);
+      CREATE INDEX IF NOT EXISTS idx_recommendations_created ON character_evolution_recommendations(created_at);
+
+      -- Trigger for updated_at
+      CREATE OR REPLACE FUNCTION update_updated_at_column()
+      RETURNS TRIGGER AS $$
+      BEGIN
+          NEW.updated_at = CURRENT_TIMESTAMP;
+          RETURN NEW;
+      END;
+      $$ language 'plpgsql';
+
+      CREATE TRIGGER update_character_modifications_updated_at
+          BEFORE UPDATE ON character_modifications
+          FOR EACH ROW
+          EXECUTE FUNCTION update_updated_at_column();
+
+      CREATE TRIGGER update_character_modification_locks_updated_at
+          BEFORE UPDATE ON character_modification_locks
+          FOR EACH ROW
+          EXECUTE FUNCTION update_updated_at_column();
+    `;
+
+    try {
+      if (this.adapter.db && typeof this.adapter.db.execute === 'function') {
+        await this.adapter.db.execute(query);
+      } else {
+        throw new Error('Database adapter does not support execute method');
+      }
+    } catch (error) {
+      logger.error('Error creating PostgreSQL schema:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Generate a UUID compatible with the database type
+   */
+  private async generateId(): Promise<string> {
+    const dbType = await this.getDatabaseType();
+    
+    if (dbType === 'sqlite') {
+      // Generate UUID v4 for SQLite
+      return crypto.randomUUID();
+    } else {
+      // Let PostgreSQL generate it
+      const result = await this.adapter.query('SELECT gen_random_uuid() as id');
+      return result.rows[0].id;
+    }
+  }
+
+  /**
+   * Get current timestamp in database-compatible format
+   */
+  private async getCurrentTimestamp(): Promise<string> {
+    const dbType = await this.getDatabaseType();
+    
+    if (dbType === 'sqlite') {
+      return new Date().toISOString();
+    } else {
+      return 'CURRENT_TIMESTAMP';
+    }
+  }
 
   /**
    * Save a character modification to the database

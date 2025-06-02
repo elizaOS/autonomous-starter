@@ -152,6 +152,9 @@ describe("Plugin Creation Actions", () => {
     });
 
     it("should handle service errors", async () => {
+      // First provide API key so we can reach the service error
+      (runtime.getSetting as any).mockReturnValue("test-api-key");
+      
       const service = runtime.services.get(
         "plugin_creation",
       ) as PluginCreationService;

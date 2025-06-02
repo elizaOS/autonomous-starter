@@ -15,6 +15,7 @@ import {
   ChannelType,
   createUniqueUuid,
 } from "@elizaos/core";
+import { createTaskService } from "../services/taskService";
 
 // Interface for parsed task data
 interface TodoTaskInput {
@@ -210,10 +211,11 @@ export const createTodoAction: Action = {
       }
 
       // Step 3: Duplicate Check (using state.data.TODOS if available, or fetch)
+      const taskService = createTaskService(runtime);
       let existingTasks: Task[] | undefined = state.data?.tasks; // Try getting from composed state first
       if (!existingTasks) {
         // Fetch if not in state
-        existingTasks = await runtime.getTasks({
+        existingTasks = await taskService.getTasks({
           entityId: message.entityId as UUID,
         });
       }
@@ -281,7 +283,7 @@ export const createTodoAction: Action = {
         entityId: message.entityId,
       });
 
-      const createdTaskId = await runtime.createTask({
+      const createdTaskId = await taskService.createTask({
         name: todo.name,
         description: todo.description || todo.name,
         tags,

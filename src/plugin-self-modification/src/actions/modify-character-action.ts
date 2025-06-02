@@ -273,10 +273,6 @@ export const rollbackCharacterAction: Action = {
     "restore previous version",
   ],
 
-  inputSchema: z.object({
-    versionId: z.string().describe("The version ID to rollback to"),
-  }),
-
   validate: async (runtime: IAgentRuntime) => {
     const modService = runtime.getService(
       CharacterModificationService.serviceName,
