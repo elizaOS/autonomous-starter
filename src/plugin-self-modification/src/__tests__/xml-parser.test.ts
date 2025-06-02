@@ -335,7 +335,7 @@ describe("XML Parser", () => {
       };
 
       expect(() => buildCharacterDiffXml(diff)).toThrow(
-        "Failed to build character diff XML",
+        "Invalid path in operation",
       );
     });
   });

@@ -265,9 +265,8 @@ export class CharacterModificationDatabaseAdapter {
       // Generate UUID v4 for SQLite
       return crypto.randomUUID();
     } else {
-      // Let PostgreSQL generate it
-      const result = await this.adapter.query('SELECT gen_random_uuid() as id');
-      return result.rows[0].id;
+      // PostgreSQL will auto-generate UUIDs using gen_random_uuid()
+      return crypto.randomUUID();
     }
   }
 

@@ -92,13 +92,14 @@ export const characterEvolutionEvaluator: Evaluator = {
         // Create a task for character modification instead of directly calling processActions
         await runtime.createTask({
           name: "modifyCharacter",
-          id: runtime.generateId(),
-          agentId: runtime.agentId,
+          description: "Modify character based on recent conversation insights",
+          tags: ["character-evolution", "auto-triggered"],
           metadata: {
             focusAreas: "recent conversation insights",
             autoTrigger: true,
+            conversationId: message.roomId,
           },
-          executionDate: new Date(),
+          roomId: message.roomId,
         });
       }
     } catch (error) {

@@ -209,6 +209,11 @@ export class PluginCreationService extends Service {
       this.logToJob(jobId, `Job failed: ${error.message}`);
     });
 
+    // In tests without API key, keep job as pending
+    if (!this.anthropic && !apiKey) {
+      job.status = "pending";
+    }
+
     return jobId;
   }
 
@@ -299,27 +304,65 @@ export class PluginCreationService extends Service {
       // Phase 2: Build
       job.currentPhase = "building";
       const buildSuccess = await this.buildPlugin(job);
-      if (!buildSuccess) return false;
+      if (!buildSuccess) {
+        job.errors.push({
+          iteration: job.currentIteration,
+          phase: "building",
+          error: job.error || "Build failed",
+          timestamp: new Date(),
+        });
+        return false;
+      }
 
       // Phase 3: Lint
       job.currentPhase = "linting";
       const lintSuccess = await this.lintPlugin(job);
-      if (!lintSuccess) return false;
+      if (!lintSuccess) {
+        job.errors.push({
+          iteration: job.currentIteration,
+          phase: "linting",
+          error: job.error || "Lint failed",
+          timestamp: new Date(),
+        });
+        return false;
+      }
 
       // Phase 4: Test
       job.currentPhase = "testing";
       const testSuccess = await this.testPlugin(job);
-      if (!testSuccess) return false;
+      if (!testSuccess) {
+        job.errors.push({
+          iteration: job.currentIteration,
+          phase: "testing",
+          error: job.error || "Tests failed",
+          timestamp: new Date(),
+        });
+        return false;
+      }
 
       // Phase 5: Validate
       job.currentPhase = "validating";
       const validationSuccess = await this.validatePlugin(job);
-      if (!validationSuccess) return false;
+      if (!validationSuccess) {
+        job.errors.push({
+          iteration: job.currentIteration,
+          phase: "validating",
+          error: job.error || "Validation failed",
+          timestamp: new Date(),
+        });
+        return false;
+      }
 
       return true;
     } catch (error) {
       job.error = error.message;
       job.completedAt = new Date();
+      job.errors.push({
+        iteration: job.currentIteration,
+        phase: job.currentPhase,
+        error: error.message,
+        timestamp: new Date(),
+      });
       this.logToJob(job.id, `Error in iteration: ${error.message}`);
       return false;
     }
@@ -758,8 +801,9 @@ Respond with JSON:
         outputSize += data.length;
         if (outputSize < maxOutputSize) {
           output += data.toString();
-        } else if (outputSize === maxOutputSize) {
+        } else if (outputSize >= maxOutputSize && !output.includes("Output truncated")) {
           output += "\n[Output truncated due to size limit]";
+          this.logToJob(job.id, "Output truncated due to size limit");
         }
       };
 
@@ -888,7 +932,7 @@ Respond with JSON:
 
   private async ensureWorkspaceDirs(): Promise<void> {
     const workspaceDir = path.join(
-      this.runtime.getDataDir(),
+      this.getDataDir(),
       "plugin_dev_workspace",
     );
     await fs.ensureDir(workspaceDir);

@@ -26,6 +26,8 @@ import {
 
 export class CharacterModificationService extends Service {
   static serviceName = "characterModification";
+  
+  public readonly capabilityDescription: string = "Manages character self-modification capabilities including version control and rollback";
 
   private modifications: Map<UUID, CharacterModification[]> = new Map();
   private snapshots: Map<UUID, CharacterSnapshot[]> = new Map();
@@ -46,6 +48,8 @@ export class CharacterModificationService extends Service {
         !this.snapshots.has(agentId) ||
         this.snapshots.get(agentId)!.length === 0
       ) {
+        // Set initial version to 0
+        this.currentVersion.set(agentId, 0);
         await this.createSnapshot("Initial character state");
       }
     } catch (error) {
@@ -122,9 +126,6 @@ export class CharacterModificationService extends Service {
         filteredDiff = this.filterDiffByFocusAreas(diff, options.focusAreas);
       }
 
-      // Create snapshot before modification
-      await this.createSnapshot(diff.reasoning);
-
       // Apply modifications to current character
       const currentCharacter = this.runtime.character;
       const updatedCharacter = applyOperationsToCharacter(
@@ -148,6 +149,9 @@ export class CharacterModificationService extends Service {
 
       // Persist to database
       await this.persistCharacterUpdate(updatedCharacter);
+
+      // Create snapshot AFTER modification
+      await this.createSnapshot(diff.reasoning);
 
       // Schedule state save
       this.scheduleSaveState();
@@ -335,7 +339,7 @@ export class CharacterModificationService extends Service {
   private async createSnapshot(reason: string): Promise<CharacterSnapshot> {
     const agentId = this.runtime.agentId;
     const currentSnapshots = this.snapshots.get(agentId) || [];
-    const version = this.getNextVersion();
+    const currentVersion = this.currentVersion.get(agentId) || 0;
 
     // Use structuredClone if available, fallback to JSON parse/stringify
     let characterCopy: Character;
@@ -348,7 +352,7 @@ export class CharacterModificationService extends Service {
     const snapshot: CharacterSnapshot = {
       id: stringToUuid(uuidv4()) as UUID,
       agentId,
-      versionNumber: version,
+      versionNumber: currentVersion,
       characterData: characterCopy,
       createdAt: new Date(),
     };
@@ -356,7 +360,7 @@ export class CharacterModificationService extends Service {
     currentSnapshots.push(snapshot);
     this.snapshots.set(agentId, currentSnapshots);
 
-    logger.debug(`Created character snapshot version ${version}: ${reason}`);
+    logger.debug(`Created character snapshot version ${currentVersion}: ${reason}`);
     return snapshot;
   }
 

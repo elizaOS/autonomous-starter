@@ -39,18 +39,28 @@ function addValue(obj: any, path: string, value: any): void {
   // Handle array append notation
   if (path.includes("[]")) {
     const arrayPath = path.replace("[]", "");
-    const results = JSONPath({ path: arrayPath, json: obj });
+    const normalizedArrayPath = arrayPath.startsWith("$") ? arrayPath : `$.${arrayPath}`;
+    
+    // Try to get the existing array
+    const results = JSONPath({ path: normalizedArrayPath, json: obj });
 
     if (results.length > 0 && Array.isArray(results[0])) {
+      // Array exists, append to it
       results[0].push(value);
     } else {
-      // Create array if it doesn't exist
-      const parentPath = arrayPath.substring(0, arrayPath.lastIndexOf("."));
-      const propertyName = arrayPath.substring(arrayPath.lastIndexOf(".") + 1);
-      const parent = JSONPath({ path: parentPath, json: obj })[0];
-
-      if (parent) {
-        parent[propertyName] = [value];
+      // Array doesn't exist, create it
+      if (arrayPath.includes(".")) {
+        // Nested path like "style.all[]"
+        const parentPath = normalizedArrayPath.substring(0, normalizedArrayPath.lastIndexOf("."));
+        const propertyName = arrayPath.substring(arrayPath.lastIndexOf(".") + 1);
+        const parentResults = JSONPath({ path: parentPath, json: obj });
+        
+        if (parentResults.length > 0) {
+          parentResults[0][propertyName] = [value];
+        }
+      } else {
+        // Top-level path like "lore[]"
+        obj[arrayPath] = [value];
       }
     }
   } else {
@@ -72,16 +82,22 @@ function addValue(obj: any, path: string, value: any): void {
 
 function modifyValue(obj: any, path: string, value: any): void {
   const normalizedPath = path.startsWith("$") ? path : `$.${path}`;
+  let found = false;
 
   JSONPath({
     path: normalizedPath,
     json: obj,
     callback: function (val, type, payload) {
-      if (payload && payload.parent && payload.parentProperty) {
+      if (payload && payload.parent && payload.parentProperty !== undefined) {
         payload.parent[payload.parentProperty] = value;
+        found = true;
       }
     },
   });
+  
+  if (!found) {
+    throw new Error(`Path ${path} does not exist`);
+  }
 }
 
 function deleteValue(obj: any, path: string): void {

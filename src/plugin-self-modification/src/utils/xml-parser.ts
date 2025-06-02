@@ -11,7 +11,6 @@ const parser = new XMLParser({
   processEntities: false,
   stopNodes: ["*.script", "*.style"],
   parseTagValue: true,
-  parseTrueNumberOnly: true,
 });
 
 const builder = new XMLBuilder({
@@ -99,14 +98,29 @@ export function parseCharacterDiff(xmlString: string): CharacterDiff {
             throw new Error(`Dangerous path pattern detected: ${path}`);
           }
 
-          operations.push({
+          const operation: ModificationOperation = {
             type,
             path,
-            value: item["#text"] || item,
-            dataType: item["@_type"],
-          });
+          };
+          
+          // Only add value for add and modify operations
+          if (type !== "delete") {
+            operation.value = item["#text"] || item;
+            operation.dataType = item["@_type"];
+          }
+          
+          operations.push(operation);
         });
       };
+
+      // Check for any unknown operation types
+      const validOps = ["add", "modify", "delete"];
+      const opsKeys = Object.keys(opsRoot);
+      for (const key of opsKeys) {
+        if (!validOps.includes(key)) {
+          throw new Error(`Invalid operation type: ${key}`);
+        }
+      }
 
       if (opsRoot.add) processOperation(opsRoot.add, "add");
       if (opsRoot.modify) processOperation(opsRoot.modify, "modify");
@@ -143,6 +157,13 @@ export function buildCharacterDiffXml(diff: CharacterDiff): string {
 
   if (!Array.isArray(diff.operations)) {
     throw new Error("Operations must be an array");
+  }
+
+  // Validate each operation has a valid path
+  for (const op of diff.operations) {
+    if (!op.path || typeof op.path !== "string") {
+      throw new Error(`Invalid path in operation: ${JSON.stringify(op)}`);
+    }
   }
 
   const xmlObj = {

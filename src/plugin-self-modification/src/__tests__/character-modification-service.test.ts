@@ -66,7 +66,7 @@ describe("CharacterModificationService", () => {
 
       const snapshots = service.getCharacterSnapshots();
       expect(snapshots).toHaveLength(1);
-      expect(snapshots[0].versionNumber).toBe(1);
+      expect(snapshots[0].versionNumber).toBe(0);
     });
 
     it("should load cached state if available", async () => {
@@ -225,18 +225,45 @@ describe("CharacterModificationService", () => {
   <reasoning>Second change</reasoning>
 </character-modification>`;
 
+      console.log("Before modifications:", mockRuntime.character.system);
       await service.applyCharacterDiff(diff1);
+      console.log("After first modification:", mockRuntime.character.system);
       await service.applyCharacterDiff(diff2);
+      console.log("After second modification:", mockRuntime.character.system);
+      
+      const snapshots = service.getCharacterSnapshots();
+      console.log("Snapshots count:", snapshots.length);
+      snapshots.forEach((s, i) => {
+        console.log(`Snapshot[${i}] version=${s.versionNumber} system="${s.characterData.system}"`);
+      });
     });
 
     it("should rollback to previous version", async () => {
       const snapshots = service.getCharacterSnapshots();
-      const targetSnapshot = snapshots[1]; // Version 1
+      // Snapshots are created AFTER modifications:
+      // [0] - Initial state (created in initialize) = "Original system prompt"
+      // [1] - After first modification = "First modification"
+      // [2] - After second modification = "Second modification"
+      
+      // To rollback to the state after first modification, we use snapshot[1]
+      const targetSnapshot = snapshots[1];
+      console.log("Rolling back to snapshot[1] with system:", targetSnapshot.characterData.system);
 
       const success = await service.rollbackCharacter(targetSnapshot.id);
 
       expect(success).toBe(true);
+      console.log("After rollback, character system:", mockRuntime.character.system);
       expect(mockRuntime.character.system).toBe("First modification");
+    });
+
+    it("should rollback to initial state", async () => {
+      const snapshots = service.getCharacterSnapshots();
+      const initialSnapshot = snapshots[0];
+
+      const success = await service.rollbackCharacter(initialSnapshot.id);
+
+      expect(success).toBe(true);
+      expect(mockRuntime.character.system).toBe("Original system prompt");
     });
 
     it("should mark rolled back modifications", async () => {

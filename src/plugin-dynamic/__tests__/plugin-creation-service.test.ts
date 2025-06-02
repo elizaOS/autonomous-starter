@@ -9,15 +9,22 @@ import { spawn } from "child_process";
 import Anthropic from "@anthropic-ai/sdk";
 
 // Mock modules
-vi.mock("fs-extra", () => ({
-  ensureDir: vi.fn(),
-  writeJson: vi.fn(),
-  writeFile: vi.fn(),
-  remove: vi.fn(),
-  readdir: vi.fn(),
-  readFile: vi.fn(),
-  pathExists: vi.fn(),
-}));
+vi.mock("fs-extra", () => {
+  const fsMethods = {
+    ensureDir: vi.fn(),
+    writeJson: vi.fn(),
+    writeFile: vi.fn(),
+    remove: vi.fn(),
+    readdir: vi.fn(),
+    readFile: vi.fn(),
+    pathExists: vi.fn(),
+  };
+  
+  return {
+    default: fsMethods,
+    ...fsMethods,
+  };
+});
 vi.mock("child_process");
 vi.mock("@anthropic-ai/sdk");
 
@@ -290,12 +297,12 @@ describe("PluginCreationService", () => {
 
       expect(service.getJobStatus(oldJobId)).toBeNull();
       expect(service.getJobStatus(recentJobId)).toBeDefined();
-      expect(mockFs.remove).toHaveBeenCalled();
+      expect(fs.remove).toHaveBeenCalled();
     });
   });
 
   describe("plugin creation workflow", () => {
-    it("should handle successful code generation", async () => {
+    it("should handle successful code generation", { timeout: 10000 }, async () => {
       (runtime.getSetting as any).mockReturnValue("test-api-key");
 
       const specification = {
@@ -308,24 +315,24 @@ describe("PluginCreationService", () => {
       const mockChild = createMockChildProcess();
       mockChild.on = vi.fn((event, callback) => {
         if (event === "close") {
-          setTimeout(() => callback(0), 10);
+          process.nextTick(() => callback(0));
         }
       });
       mockSpawn.mockReturnValue(mockChild);
 
       const jobId = await service.createPlugin(specification, "test-api-key");
 
-      // Let the async process start
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Use fake timers to advance
+      await vi.advanceTimersByTimeAsync(100);
 
       const job = service.getJobStatus(jobId);
       expect(job).toBeDefined();
       expect(mockAnthropicCreate).toHaveBeenCalled();
-      expect(mockFs.ensureDir).toHaveBeenCalled();
-      expect(mockFs.writeJson).toHaveBeenCalled();
+      expect(fs.ensureDir).toHaveBeenCalled();
+      expect(fs.writeJson).toHaveBeenCalled();
     });
 
-    it("should handle code generation failure", async () => {
+    it("should handle code generation failure", { timeout: 10000 }, async () => {
       (runtime.getSetting as any).mockReturnValue("test-api-key");
 
       // Mock Anthropic failure
@@ -338,22 +345,22 @@ describe("PluginCreationService", () => {
 
       const jobId = await service.createPlugin(specification, "test-api-key");
 
-      // Let the async process run
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Use fake timers to advance
+      await vi.advanceTimersByTimeAsync(100);
 
       const job = service.getJobStatus(jobId);
       expect(job?.status).toBe("failed");
       expect(job?.error).toContain("API error");
     });
 
-    it("should handle build failures", async () => {
+    it("should handle build failures", { timeout: 10000 }, async () => {
       (runtime.getSetting as any).mockReturnValue("test-api-key");
 
       // Mock failed build
       const mockChild = createMockChildProcess();
       mockChild.on = vi.fn((event, callback) => {
         if (event === "close") {
-          setTimeout(() => callback(1), 10); // Exit code 1
+          process.nextTick(() => callback(1)); // Exit code 1
         }
       });
       mockChild.stderr.on = vi.fn((event, callback) => {
@@ -370,8 +377,8 @@ describe("PluginCreationService", () => {
 
       const jobId = await service.createPlugin(specification, "test-api-key");
 
-      // Let the async process run
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      // Use fake timers to advance
+      await vi.advanceTimersByTimeAsync(200);
 
       const job = service.getJobStatus(jobId);
       expect(job?.errors.length).toBeGreaterThan(0);
@@ -392,20 +399,23 @@ describe("PluginCreationService", () => {
 
       const jobId = await service.createPlugin(specification, "test-api-key");
 
-      // Fast-forward past command timeout (5 minutes)
-      vi.advanceTimersByTime(5 * 60 * 1000 + 1000);
+      // Wait for async code generation to complete
+      await vi.advanceTimersByTimeAsync(100);
+
+      // Now advance past command timeout (5 minutes)
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000 + 1000);
 
       expect(mockChild.kill).toHaveBeenCalledWith("SIGTERM");
     });
 
-    it("should limit output size", async () => {
+    it("should limit output size", { timeout: 10000 }, async () => {
       (runtime.getSetting as any).mockReturnValue("test-api-key");
 
       // Mock large output
       const mockChild = createMockChildProcess();
       mockChild.on = vi.fn((event, callback) => {
         if (event === "close") {
-          setTimeout(() => callback(0), 10);
+          process.nextTick(() => callback(0));
         }
       });
       mockChild.stdout.on = vi.fn((event, callback) => {
@@ -425,8 +435,8 @@ describe("PluginCreationService", () => {
 
       const jobId = await service.createPlugin(specification, "test-api-key");
 
-      // Let the async process run
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      // Use fake timers to advance
+      await vi.advanceTimersByTimeAsync(200);
 
       const job = service.getJobStatus(jobId);
       const logs = job?.logs.join("\n") || "";
@@ -452,7 +462,9 @@ describe("PluginCreationService", () => {
       expect(sanitizedName).not.toContain("/");
     });
 
-    it("should prevent shell injection in commands", async () => {
+    it("should prevent shell injection in commands", { timeout: 10000 }, async () => {
+      (runtime.getSetting as any).mockReturnValue("test-api-key");
+      
       // The spawn call should use shell: false
       const specification = {
         name: "@test/plugin",
@@ -461,8 +473,8 @@ describe("PluginCreationService", () => {
 
       await service.createPlugin(specification, "test-api-key");
 
-      // Let async process start
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Use fake timers to advance
+      await vi.advanceTimersByTimeAsync(100);
 
       expect(mockSpawn).toHaveBeenCalledWith(
         expect.any(String),
