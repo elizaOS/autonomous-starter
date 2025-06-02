@@ -164,13 +164,13 @@ The changes will help me better understand and communicate based on our recent i
   examples: [
     [
       {
-        user: "{{user1}}",
+        name: "{{user1}}",
         content: {
           text: "You should update your personality based on our conversations about philosophy",
         },
       },
       {
-        user: "{{agent}}",
+        name: "{{agent}}",
         content: {
           text: "I'll reflect on our philosophical discussions and update my character accordingly.",
           action: "modifyCharacter",
@@ -179,13 +179,13 @@ The changes will help me better understand and communicate based on our recent i
     ],
     [
       {
-        user: "{{user1}}",
+        name: "{{user1}}",
         content: {
           text: "Can you evolve your personality to be more helpful with technical topics?",
         },
       },
       {
-        user: "{{agent}}",
+        name: "{{agent}}",
         content: {
           text: "I'll analyze our interactions and adapt my personality to better assist with technical subjects.",
           action: "modifyCharacter",
