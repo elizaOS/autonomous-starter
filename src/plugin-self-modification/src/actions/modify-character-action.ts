@@ -4,11 +4,11 @@ import {
   type Memory,
   type State,
   type HandlerCallback,
-  generateText,
-  composeContext,
-  ModelClass,
   logger,
+  ModelType,
+  composePromptFromState,
 } from "@elizaos/core";
+import { ModelClass } from "../types";
 import { z } from "zod";
 import { CharacterModificationService } from "../services/character-modification-service";
 
@@ -77,17 +77,24 @@ export const modifyCharacterAction: Action = {
         return false;
       }
 
-      // Compose context with character state and recent messages
-      const context = composeContext({
-        state,
+      // Compose the prompt with state values
+      const prompt = composePromptFromState({
+        state: {
+          values: {
+            characterState: state.characterState || "",
+            recentMessages: state.recentMessages || "",
+            focusAreas: options?.focusAreas || "",
+            characterDiff: state.characterDiff || "",
+          },
+          data: {},
+          text: "",
+        },
         template: modifyCharacterTemplate,
       });
 
-      // Generate the XML diff
-      const diffResponse = await generateText({
-        runtime,
-        context,
-        modelClass: ModelClass.LARGE,
+      // Use runtime.useModel with ModelType
+      const diffResponse = await runtime.useModel(ModelType.TEXT_LARGE, {
+        prompt,
       });
 
       if (!diffResponse) {
